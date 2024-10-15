@@ -1,0 +1,220 @@
+Table "dbo"."WN_UNIVERSITY" {
+  "UNIV_CODE" int [not null]
+  "UNIV_NAME" nvarchar(100) [not null]
+  "UNIV_ADDRESS" nvarchar(255)
+  "UNIV_CITY" nvarchar(50)
+  "UNIV_STATE" nvarchar(50)
+  "UNIV_ZIP" nvarchar(10)
+  "UNIV_PHONE" nvarchar(15)
+  "UNIV_PHONE_ALT" nvarchar(15)
+  "UNIV_WEBSITE" varchar(255)
+  "UNIV_LATITUDE" float
+  "UNIV_LONGITUDE" float
+}
+
+
+Table "dbo"."WN_LIBRARY" {
+  "LIB_CODE" int [not null]
+  "LIB_NAME" nvarchar(50) [not null]
+  "LIB_LOCATION" nvarchar(255)
+  "UNIV_CODE" int [not null]
+  "ACTIVE" bit [not null, default: 1]
+}
+
+
+Table "dbo"."WN_FLOORS" {
+  "FLOOR_CODE" int [not null]
+  "FLOOR_NUMBER" int [not null]
+  "FLOOR_NAME" nvarchar(50)
+  "FLOOR_MAP" nvarchar(255)
+  "FLOOR_COLOR" nvarchar(255)
+  "LIB_CODE" int [not null]
+  "ACTIVE" bit [not null, default: 1]
+}
+
+Table "dbo"."WN_ROOM_CATEGORY" {
+  "ROOMCAT_CODE" int [not null]
+  "ROOMCAT_NAME" nvarchar(50)
+}
+
+Table "dbo"."WN_ROOM" {
+  "ROOM_CODE" int [not null]
+  "ROOM_NUMBER" varchar(10) [not null]
+  "ROOM_NAME" nvarchar(50) [not null]
+  "ROOM_COORDS" varchar(25)
+  "ROOM_CAPACITY" int
+  "ROOM_MAP" nvarchar(255)
+  "ROOM_SEATS_START" int
+  "ROOM_SEATS_END" int
+  "ROOMCAT_CODE" int [not null]
+  "FLOOR_CODE" int [not null]
+  "ACTIVE" bit [not null, default: 1]
+}
+
+
+Table "dbo"."WN_ROOM_CONFIG" {
+  "ROOM_CODE" int [not null]
+  "ROOM_COMMON_OPEN_TIME" nvarchar(8)
+  "ROOM_COMMON_CLOSE_TIME" nvarchar(8)
+  "ROOM_FIXED_USETIME" int
+  "ROOM_EXTENSION_ALLOWED"  bit [not null, default: 1]
+  "ROOM_USE_USETIME_AS_EXTENSION"  bit [not null, default: 1]
+  "ROOM_EXTESION_TIME" int
+  "ROOM_EXTENSION_LIMIT" int
+  "ROOM_ALLOW_FIXED_SEAT" bit [not null, default: 1]
+  "ROOM_FIXED_SEATS_NUMBERS" varchar(255)
+  "ROOM_POSITION_STATE" int [not null, default: 0] // 0: Not in Use, 1: Selected Allowed, 2: Selected Blocked
+  "ROOM_DEPARTMENT_STATE" int [not null, default: 0] // 0: Not in Use, 1: Selected Allowed, 2: Selected Blocked
+  "ROOM_STATUS_STATE" int [not null, default: 0] // 0: Not in Use, 1: Selected Allowed, 2: Selected Blocked
+  "ZONE_CODE" int [not null]
+  "SCHEDULE_TYPE_CODE" int [not null]
+}
+
+Table "dbo"."WN_SCHEDULE_TYPE" {
+  "SCHEDULE_TYPE_CODE"  int [not null]
+  "SCHEDULE_TYPE_NAME" nvarchar(50) [not null] // NORMAL, EXAMINATION, VACATION
+}
+
+Table "dbo"."WN_ZONES" {
+  "ZONE_CODE" int [not null]
+  "ZONE_NAME" nvarchar(50) [not null]
+  "ZONE_MAP" varchar(255) 
+  "ZONE_COORDS" varchar(25)
+  "ACTIVE" bit [not null, default: 1]
+}
+
+Table "dbo"."WN_SEAT_CATEGORY" {
+  "SEATCAT_CODE" int [not null]
+  "SEATCAT_NAME" nvarchar(50) [not null]            // PC, General, Reading, etc.
+}
+
+Table "dbo"."WN_SEAT" {
+  "SEAT_CODE" int [not null]
+  "SEAT_NUMBER" int [not null]
+  "ROOM_CODE" int [not null]
+  "ZONE_CODE" int [not null]
+  "SEAT_COORDS" varchar(25)
+  "SEATCAT_CODE" varchar(10) [not null]
+}
+
+Table "dbo"."WN_ROOM_USERCODES_MAP" {
+    "SEQ" int [pk] // Primary Key
+    "ROOM_CODE" int [not null]
+    "USER_CODE" int [not null]
+    "USER_CODE_TYPE" varchar(10) [not null] // DEPARTMENT, POSITION, STATUS
+    "SCHEDULE_TYPE_CODE" int [not null]
+    "ACTIVE" bit [not null, default: 1]
+}
+
+Table "dbo"."WN_COMMON_CONFIG" {
+    "CONFIG_KEY" nvarchar(50) [pk]
+    "CONFIG_VALUE" nvarchar(255) [not null]
+    "ACTIVE" bit [not null, default: 1]
+}
+
+Table "dbo"."WN_BOOKING_STATUS" {
+  "RESERVATION_STATUS_CODE" int [not null]
+  "RESERVATION_STATUS_NAME" nvarchar(50) [not null] // BOOKED, CONFIRMED, IN_USE, CANCELLED, RETURNED
+}
+
+Table "dbo"."WN_USER_DEPARTMENTS" {
+  "USER_DEPT_CODE" nvarchar(10) [not null]
+  "USER_DEPT_NAME" nvarchar(50) [not null]
+}
+
+Table "dbo"."WN_USER_POSITIONS" {
+  "USER_POS_CODE" nvarchar(10) [not null]
+  "USER_POS_NAME" nvarchar(50) [not null]
+}
+
+Table "dbo"."WN_USER_STATUS" {
+  "USER_STATUS_CODE" nvarchar(10) [not null]
+  "USER_STATUS_NAME" nvarchar(50) [not null]
+}
+
+Table "dbo"."WN_USERS" {
+  "USER_ID" varchar(30) [not null]
+  "USER_NAME" nvarchar(50) [not null]
+  "USER_SCHOOL_NO" varchar(50) [not null]
+  "USER_BARCODE" varchar(50)
+
+  "USER_DEPT_CODE" nvarchar(10)
+  "USER_DEPT_NAME" nvarchar(50)
+  "USER_POS_CODE" nvarchar(10)
+  "USER_POS_NAME" nvarchar(50)
+  "USER_STATUS_CODE" nvarchar(10)
+  "USER_STATUS_NAME" nvarchar(50)
+
+  "USER_MOBILE" nvarchar(20)
+  "USER_PHONE" nvarchar(20)
+  "USER_ADDRESS" nvarchar(255)
+  "USER_PASSWORD" nvarchar(255)
+  "USER_PASS_CHANGE_DTTIME" varchar(23)
+  "AUTH_TOKEN" nvarchar(255)
+}
+
+
+
+
+
+----------------------------------------------------------------------------------
+
+
+Table "dbo"."WN_BOOKING" {
+  "BOOKING_ID" varchar(30) // DATE + TIME(ns) + SEAT_CODE
+
+  // User Information
+  "USER_ID" varchar(30)
+  "USER_SCHOOL_NO" varchar(30)
+  "USER_NAME" nvarchar(100)
+
+  // Reservation Information
+  "RESERVATION_MODE" char(1) // K: Kiosk, W: Web, M: Mobile
+  "RESERVATION_DTIME" varchar(23)
+  "RESERVATION_FROM" varchar(23)
+  "RESERVATION_TILL" varchar(23)
+  "RESERVATION_STATUS_CODE" int [not null]
+
+  // Seat Information
+  "FLOOR_CODE" int [not null]
+  "ROOM_CODE"  int [not null]
+  "ZONE_CODE"  int [not null]
+
+  
+  "MANAGER_ACTION" int
+  "MANAGER_BOOKING_ID" varchar(30)
+
+  "EXTENSION_DTTIME" varchar(23)
+  "EXTENSION_COUNT" int
+
+    "CHANGE_SEAT_STATUS" bit [not null]
+    "SEAT_CHANGE_DTTIME" varchar(23)
+    "BOOKING_TYPE_CODE" varchar(10)  // GENERAL, CAREL, GROUP, etc.
+    "RESERVE_DESK_NO" int
+    "RESERVE_DESK_CODE" varchar(10)
+}
+
+
+
+
+Table "dbo"."WN_BOOKING_USERS_INFO" {
+  "BOOKING_ID" varchar(30) // DATE + TIME(ms) + SEAT_CODE
+  "USER_ID" varchar(30)
+  "USER_NAME" nvarchar(100)
+  "SCHOOL_NO" varchar(30)
+  "RESERVATION_STATUS_CODE" varchar(10)
+    "CONFIRMATION_DTTIME" varchar(23)
+      "RETURN_DTTIME" varchar(23)
+}
+
+
+Table "dbo.WN_BOOKING_USER_HISTORY"{
+      "BOOKING_ID" varchar(30) // DATE + TIME(ms) + SEAT_CODE
+  "USER_ID" varchar(30)
+  "USER_NAME" nvarchar(100)
+  "SCHOOL_NO" varchar(30)
+  "RESERVATION_STATUS_CODE" varchar(10)
+  "ACTION_CODE" varchar(10) // BOOKED, CONFIRMED, EXTENDED, CANCELLED, RETURNED, AUTO_CANCELLED, AUTO_RETURNED
+    "ACTION_DTTIME" varchar(23)
+    "ACTION_BY" varchar(30) //PC/SELF/MANAGER
+}

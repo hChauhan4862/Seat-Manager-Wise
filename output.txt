@@ -1,0 +1,1914 @@
++ main
+  + java
+    + wise
+      + common
+        - CustomException.java
+          Content:
+            package wise.common;
+            
+            import org.springframework.http.HttpStatus;
+            import org.springframework.http.HttpStatusCode;
+            
+            import io.micrometer.common.lang.Nullable;
+            
+            public class CustomException extends RuntimeException {
+            
+                private String code;
+                private Object[] args;
+                HttpStatusCode status;
+            
+                // Constructor with code only
+            
+                public CustomException(String code, @Nullable  Object[] args, HttpStatusCode status, Throwable cause) {
+                    super(cause);
+                    this.code = code;
+                    this.args = args;
+                    this.status = status;
+                }
+            
+                public CustomException(String code, @Nullable Object[] args, @Nullable HttpStatusCode status) {
+                    this.code = code;
+                    this.args = args;
+                    this.status = status;
+                }
+            
+                public CustomException(String code, HttpStatusCode status) {
+                    this.code = code;
+                    this.args = null;
+                    this.status = status;
+                }
+            
+                public CustomException(String code) {
+                    this.code = code;
+                    this.args = null;
+                }
+            
+                public String getCode() {
+                    return code;
+                }
+            
+                public Object[] getArgs() {
+                    return args;
+                }
+            
+                public HttpStatusCode getStatus() {
+                    if (status == null) {
+                        return HttpStatus.BAD_REQUEST;
+                    }
+                    return status;
+                }
+            }
+        - RequestContext.java
+          Content:
+            package wise.common;
+            
+            import org.springframework.web.context.request.RequestAttributes;
+            import org.springframework.web.context.request.RequestContextHolder;
+            
+            
+            public class RequestContext {
+            
+                public static void set(String key, Object value) {
+                    RequestAttributes requestAttributes = RequestContextHolder.getRequestAttributes();
+                    if (requestAttributes == null) {
+                        return;
+                    }
+                    requestAttributes.setAttribute(key, value, RequestAttributes.SCOPE_REQUEST);
+                }
+            
+                public static Object get(String key) {
+                    RequestAttributes requestAttributes = RequestContextHolder.getRequestAttributes();
+                    if (requestAttributes == null) {
+                        return null;
+                    }
+                    return requestAttributes.getAttribute(key, RequestAttributes.SCOPE_REQUEST);
+                }
+            }
+      + config
+        - ApiKeyConfig.java
+          Content:
+            package wise.config;
+            
+            import org.springframework.beans.factory.annotation.Value;
+            import org.springframework.cloud.context.config.annotation.RefreshScope;
+            import org.springframework.context.annotation.Configuration;
+            
+            import java.util.Map;
+            
+            @Configuration
+            @RefreshScope  // Enables dynamic refresh of API key values
+            public class ApiKeyConfig {
+            
+                @Value("${wn.config.api.key.master:}")
+                private String masterApiKey;
+            
+                @Value("${wn.config.api.key.web:}")
+                private String webApiKey;
+            
+                @Value("${wn.config.api.key.mobile:}")
+                private String mobileApiKey;
+            
+                @Value("${wn.config.api.key.kiosk:}")
+                private String kioskApiKey;
+            
+                public Map<String, String> getApiKeys() {
+                    return Map.of(
+                            "master", masterApiKey,
+                            "web", webApiKey,
+                            "mobile", mobileApiKey,
+                            "kiosk", kioskApiKey
+                    );
+                }
+            }
+        - AsyncConfig.java
+          Content:
+            package wise.config;
+            
+            import org.springframework.context.annotation.Configuration;
+            import org.springframework.scheduling.annotation.AsyncConfigurer;
+            import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+            
+            import java.util.concurrent.Executor;
+            import wise.middlewares.MdcTaskDecorator;
+            
+            @Configuration
+            public class AsyncConfig implements AsyncConfigurer {
+            
+                @Override
+                public Executor getAsyncExecutor() {
+                    ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+                    executor.setCorePoolSize(5);
+                    executor.setMaxPoolSize(10);
+                    executor.setQueueCapacity(100);
+                    executor.setTaskDecorator(new MdcTaskDecorator());
+                    executor.initialize();
+                    return executor;
+                }
+            }
+        - CorsConfig.java
+          Content:
+            package wise.config;
+            
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.beans.factory.annotation.Value;
+            import org.springframework.context.annotation.Bean;
+            import org.springframework.context.annotation.Configuration;
+            import org.springframework.web.servlet.config.annotation.CorsRegistry;
+            import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+            import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+            
+            import wise.middlewares.MyInterceptor;
+            
+            @Configuration
+            public class CorsConfig implements WebMvcConfigurer {
+            
+                @Autowired
+                private MyInterceptor myInterceptor;
+            
+                // In CorsConfig.java
+                @Value("${allowed.origins}")
+                private String[] allowedOrigins;
+            
+                @Bean
+                public WebMvcConfigurer corsConfigurer() {
+                    return new WebMvcConfigurer() {
+                        @Override
+                        public void addCorsMappings(@SuppressWarnings("null") CorsRegistry registry) {
+                            registry.addMapping("/**") // Allow all endpoints
+                                .allowedOrigins(allowedOrigins) // Replace with actual origins
+                                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS") // Allow all HTTP methods
+                                .allowedHeaders("*") // Allow all headers
+                                .allowCredentials(true); // Allow credentials (cookies, authorization headers)
+                        }
+                    };
+                }
+            
+                @Override
+                public void addInterceptors(@SuppressWarnings("null") InterceptorRegistry registry) {
+                    registry.addInterceptor(myInterceptor).addPathPatterns("/**"); // Apply the interceptor to all routes
+                }
+            }
+        - DataSourceConfig.java
+          Content:
+            package wise.config;
+            
+            import com.zaxxer.hikari.HikariDataSource;
+            import org.springframework.beans.factory.annotation.Value;
+            import org.springframework.cloud.context.config.annotation.RefreshScope;
+            import org.springframework.context.annotation.Bean;
+            import org.springframework.context.annotation.Configuration;
+            import org.springframework.orm.jpa.JpaTransactionManager;
+            import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
+            import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
+            import org.springframework.transaction.annotation.EnableTransactionManagement;
+            
+            import javax.sql.DataSource;
+            import java.util.Properties;
+            
+            @Configuration
+            @EnableTransactionManagement
+            @RefreshScope
+            public class DataSourceConfig {
+            
+                @Value("${spring.datasource.url}")
+                private String jdbcUrl;
+            
+                @Value("${spring.datasource.username}")
+                private String username;
+            
+                @Value("${spring.datasource.password}")
+                private String password;
+            
+                @Value("${spring.datasource.driver-class-name}")
+                private String driverClassName;
+            
+                @Bean
+                @RefreshScope  // Only applies to DataSource to allow dynamic refresh
+                public DataSource dataSource() {
+                    HikariDataSource dataSource = new HikariDataSource();
+                    dataSource.setJdbcUrl(jdbcUrl);
+                    dataSource.setUsername(username);
+                    dataSource.setPassword(password);
+                    dataSource.setDriverClassName(driverClassName);
+            
+                    // Connection pool settings
+                    dataSource.setAllowPoolSuspension(true);
+                    dataSource.setMaximumPoolSize(50);
+                    dataSource.setMinimumIdle(10);
+                    dataSource.setIdleTimeout(30000);
+                    dataSource.setConnectionTimeout(30000);
+                    dataSource.setMaxLifetime(1800000);
+            
+                    dataSource.setInitializationFailTimeout(-1);
+            
+                    return dataSource;
+                }
+            
+                @Bean
+                public LocalContainerEntityManagerFactoryBean entityManagerFactory() {
+                    LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
+                    em.setDataSource(dataSource());
+                    em.setPackagesToScan("wise.models");
+                    em.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
+                    em.setJpaProperties(hibernateProperties());
+                    return em;
+                }
+            
+                @Bean
+                public JpaTransactionManager transactionManager(LocalContainerEntityManagerFactoryBean entityManagerFactory) {
+                    JpaTransactionManager transactionManager = new JpaTransactionManager();
+                    transactionManager.setEntityManagerFactory(entityManagerFactory.getObject());
+                    return transactionManager;
+                }
+            
+                private Properties hibernateProperties() {
+                    Properties hibernateProps = new Properties();
+                    hibernateProps.put("hibernate.show_sql", "true");
+                    hibernateProps.put("hibernate.hbm2ddl.auto", "update");
+                    return hibernateProps;
+                }
+            }
+        - SwaggerConfig.java
+          Content:
+            package wise.config;
+            
+            import io.swagger.v3.oas.models.OpenAPI;
+            import io.swagger.v3.oas.models.info.Info;
+            import org.springdoc.core.models.GroupedOpenApi;
+            import org.springframework.context.annotation.Bean;
+            import org.springframework.context.annotation.Configuration;
+            
+            @Configuration
+            public class SwaggerConfig {
+            
+                // Basic OpenAPI setup for title, version, description
+                @Bean
+                public OpenAPI customOpenAPI() {
+                    return new OpenAPI()
+                        .info(new Info().title("Neosco API")
+                        .version("1.0.0")
+                        .description("API documentation for Neosco project"));
+                }
+            
+                // Custom OpenAPI response model
+                @Bean
+                public GroupedOpenApi mobileApi() {
+                    return GroupedOpenApi.builder()
+                            .group("mobile") // Name of the group
+                            .pathsToMatch("/mobile/**") // Match all paths starting with /mobile
+                            .build();
+                }
+            
+                // Group for Kiosk routes
+                @Bean
+                public GroupedOpenApi kioskApi() {
+                    return GroupedOpenApi.builder()
+                            .group("kiosk") // Name of the group
+                            .pathsToMatch("/kiosk/**") // Match all paths starting with /kiosk
+                            .build();
+                }
+            
+                
+                // Group for Web routes
+                @Bean
+                public GroupedOpenApi webApi() {
+                    return GroupedOpenApi.builder()
+                            .group("web") // Name of the group
+                            .pathsToMatch("/web/**") // Match all paths starting with /web
+                            .build();
+                }
+            }
+        - TimeTakenAdvice.java
+          Content:
+            package wise.config;
+            
+            import org.springframework.web.bind.annotation.ControllerAdvice;
+            import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
+            import org.springframework.core.MethodParameter;
+            import org.springframework.http.MediaType;
+            import org.springframework.http.server.ServerHttpRequest;
+            import org.springframework.http.server.ServerHttpResponse;
+            import wise.common.RequestContext;
+            
+            
+            @ControllerAdvice
+            public class TimeTakenAdvice implements ResponseBodyAdvice<Object> {
+            
+                @Override
+                public boolean supports(@SuppressWarnings("null") MethodParameter returnType, @SuppressWarnings({ "null", "rawtypes" }) Class converterType) {
+                    return true;  // Apply to all responses
+                }
+            
+                @Override
+                public Object beforeBodyWrite(@SuppressWarnings("null") Object body, @SuppressWarnings("null") MethodParameter returnType, @SuppressWarnings("null") MediaType selectedContentType,
+                                              @SuppressWarnings({ "rawtypes", "null" }) Class selectedConverterType, @SuppressWarnings("null") ServerHttpRequest request, @SuppressWarnings("null") ServerHttpResponse response) {
+                    Long requestTime = (Long) RequestContext.get("request_time");
+                    if (requestTime != null) {
+                        long timeTaken = System.currentTimeMillis() - requestTime;
+                        response.getHeaders().add("X-Time-Taken", String.valueOf(timeTaken));
+                    }
+                    return body;
+                }
+            }
+      + dto
+        + config
+          - SysConfigDto.java
+            Content:
+              package wise.dto.config;
+              
+              import com.fasterxml.jackson.annotation.JsonProperty;
+              
+              import jakarta.validation.constraints.*;
+              import lombok.Data;
+              
+              @Data
+              public class SysConfigDto {
+              
+                  @NotBlank(message = "{sysproperties.key.required}")
+                  @JsonProperty("key")
+                  private String key;
+              
+                  @NotBlank(message = "{sysproperties.value.required}")
+                  @JsonProperty("value")
+                  private String value;
+              
+                  // Getters and Setters
+              }
+        + departments
+          - CreateDepartmentsDto.java
+            Content:
+              package wise.dto.departments;
+              
+              import com.fasterxml.jackson.annotation.JsonProperty;
+              
+              import jakarta.validation.constraints.*;
+              import lombok.Data;
+              
+              @Data
+              public class CreateDepartmentsDto {
+              
+                  @NotBlank(message = "{departments.name.required}")
+                  @JsonProperty("dept_name")
+                  private String deptName;
+              
+                  // Getters and Setters
+              }
+          - UpdateDepartmentsDto.java
+            Content:
+              package wise.dto.departments;
+              
+              import com.fasterxml.jackson.annotation.JsonProperty;
+              
+              import jakarta.validation.constraints.*;
+              import lombok.Data;
+              
+              @Data
+              public class UpdateDepartmentsDto {
+              
+                  @NotBlank(message = "{departments.name.required}")
+                  @JsonProperty("dept_name")
+                  private String deptName;
+              
+                  // Getters and Setters
+              }
+        + university
+          - CreateUniversityDto.java
+            Content:
+              package wise.dto.university;
+              
+              import com.fasterxml.jackson.annotation.JsonProperty;
+              
+              import jakarta.validation.constraints.*;
+              import lombok.Data;
+              
+              @Data
+              public class CreateUniversityDto {
+              
+                  @NotBlank(message = "{university.name.required}")
+                  @JsonProperty("university_name")
+                  private String universityName;
+              
+                  @NotBlank(message = "{university.address.required}")
+                  @JsonProperty("university_address")
+                  private String universityAddress;
+              
+                  @NotBlank(message = "{university.city.required}")
+                  @JsonProperty("university_city")
+                  private String universityCity;
+              
+                  @NotBlank(message = "{university.state.required}")
+                  @JsonProperty("university_state")
+                  private String universityState;
+              
+                  @NotBlank(message = "{university.zip.required}")
+                  @JsonProperty("university_zip")
+                  private String universityZip;
+              
+                  @NotBlank(message = "{university.phone.required}")
+                  @JsonProperty("university_phone")
+                  private String universityPhone;
+              
+                  @JsonProperty("university_phone_alt")
+                  private String universityPhoneAlt;
+              
+                  @JsonProperty("university_website")
+                  private String universityWebsite;
+              
+                  @JsonProperty("university_latitude")
+                  private Float universityLatitude;
+              
+                  @JsonProperty("university_longitude")
+                  private Float universityLongitude;
+              
+                  // Getters and Setters
+              }
+        - ApiResponseModel.java
+          Content:
+            package wise.dto;
+            
+            import io.swagger.v3.oas.annotations.media.Schema;
+            import lombok.AllArgsConstructor;
+            import lombok.Data;
+            import lombok.NoArgsConstructor;
+            
+            @Data
+            @AllArgsConstructor
+            @NoArgsConstructor
+            @Schema(description = "Generic API Response Model")
+            public class ApiResponseModel {
+            
+                @Schema(description = "Indicates if the operation was successful")
+                private boolean success;
+            
+                @Schema(description = "Response code", example = "200")
+                private int code;
+            
+                @Schema(description = "Response data", nullable = true)
+                private Object data;
+            
+                @Schema(description = "A message describing the result", example = "Request was successful")
+                private String msg;
+            
+            }
+      + middlewares
+        - ApiKeyFilter.java
+          Content:
+            package wise.middlewares;
+            
+            import jakarta.servlet.Filter;
+            import jakarta.servlet.FilterChain;
+            import jakarta.servlet.FilterConfig;
+            import jakarta.servlet.ServletException;
+            import jakarta.servlet.ServletRequest;
+            import jakarta.servlet.ServletResponse;
+            import jakarta.servlet.http.HttpServletRequest;
+            import jakarta.servlet.http.HttpServletResponse;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.stereotype.Component;
+            
+            import java.io.IOException;
+            import java.util.Map;
+            import wise.config.ApiKeyConfig;
+            
+            @Component
+            public class ApiKeyFilter implements Filter {
+            
+                @Autowired
+                private ApiKeyConfig apiKeyConfig;
+            
+                @Override
+                public void init(FilterConfig filterConfig) throws ServletException {
+                    // Initialization code if needed
+                }
+            
+                @Override
+                public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+                        throws IOException, ServletException {
+            
+                    HttpServletRequest httpRequest = (HttpServletRequest) request;
+                    HttpServletResponse httpResponse = (HttpServletResponse) response;
+            
+                    String ClientApiKey = httpRequest.getHeader("x-api-key");
+                    String requestURI = httpRequest.getRequestURI();
+            
+                    Map<String, String> apiKeys = apiKeyConfig.getApiKeys();
+            
+                    // Determine the correct API key based on the route group
+                    String expectedApiKey = null;
+                    Boolean needAPIKEY = false;
+                    if (requestURI.startsWith("/web/")) {
+                        expectedApiKey = apiKeys.get("web");
+                        needAPIKEY = true;
+                    } else if (requestURI.startsWith("/mobile/")) {
+                        expectedApiKey = apiKeys.get("mobile");
+                        needAPIKEY = true;
+                    } else if (requestURI.startsWith("/kiosk/")) {
+                        expectedApiKey = apiKeys.get("kiosk");
+                        needAPIKEY = true;
+                    }
+            
+            
+                    String masterApiKey = apiKeys.get("master");
+                    masterApiKey = (masterApiKey == null || masterApiKey == "") ? expectedApiKey : masterApiKey; // If master API key is not set, use the expected API key
+            
+                    // Check if the API Key is Set in Config and matched with the request
+                    if ( 
+                        needAPIKEY 
+                        &&   
+                        !(
+                            // If the expected or master API key is not set or not required, allow all requests
+                            (expectedApiKey == null || expectedApiKey == "") && (masterApiKey == null || masterApiKey == "")
+                        ) 
+                        && (
+                            // If the client API key is not set or does not match the expected or master API key, return 404
+                            ClientApiKey == null 
+                                    || 
+                            (!ClientApiKey.equals(expectedApiKey) && !ClientApiKey.equals(masterApiKey))
+                            )
+                        ) {
+                        // httpResponse.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                        // httpResponse.getWriter().write("Invalid API Key");
+            
+                        
+                        httpResponse.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                        return;
+                    }
+            
+                    // Proceed with the request if API key matches
+                    chain.doFilter(request, response);
+                }
+            
+                @Override
+                public void destroy() {
+                    // Cleanup code if needed
+                }
+            }
+        - GlobalExceptionHandler.java
+          Content:
+            package wise.middlewares;
+            
+            import org.hibernate.exception.ConstraintViolationException;
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.dao.DataIntegrityViolationException;
+            import org.springframework.http.HttpStatus;
+            import org.springframework.http.ResponseEntity;
+            import org.springframework.orm.jpa.JpaSystemException;
+            import org.springframework.validation.FieldError;
+            import org.springframework.web.bind.MethodArgumentNotValidException;
+            import org.springframework.web.bind.annotation.ControllerAdvice;
+            import org.springframework.web.bind.annotation.ExceptionHandler;
+            import org.springframework.web.client.HttpServerErrorException.NotImplemented;
+            
+            import wise.common.CustomException;
+            import wise.dto.ApiResponseModel;
+            import wise.services.ResponseService;
+            
+            import org.springframework.context.MessageSource;
+            
+            
+            
+            import java.util.HashMap;
+            import java.util.Locale;
+            import java.util.Map;
+            
+            @ControllerAdvice
+            public class GlobalExceptionHandler {
+            
+                @Autowired
+                private ResponseService responseService;
+            
+                @Autowired
+                private MessageSource messageSource;
+            
+                // Handle general runtime exceptions
+                // @ExceptionHandler(RuntimeException.class)
+                // public ResponseEntity<ApiResponseModel> handleRuntimeException(RuntimeException exception) {
+                //     return new ResponseEntity<ApiResponseModel>(responseService.errorResponse(500, "response.internalServerError", null), HttpStatus.INTERNAL_SERVER_ERROR);
+                // }
+            
+                @ExceptionHandler(MethodArgumentNotValidException.class)
+                public ResponseEntity<ApiResponseModel> handleValidationExceptions(MethodArgumentNotValidException ex) {
+                    Map<String, String> errors = new HashMap<>();
+                    
+                    ex.getBindingResult().getAllErrors().forEach((error) -> {
+                        String fieldName = ((FieldError) error).getField();
+                        String errorMessage = messageSource.getMessage(error, Locale.getDefault());
+                        errors.put(fieldName, errorMessage);
+                    });
+            
+                    return new ResponseEntity<ApiResponseModel>(responseService.errorResponse(100, "response.validationError", errors), HttpStatus.INTERNAL_SERVER_ERROR);
+                }
+            
+            
+            
+                // Handle CustomException
+                @ExceptionHandler(CustomException.class)
+                public ResponseEntity<ApiResponseModel> handleCustomException(CustomException ex) {
+                    return new ResponseEntity<ApiResponseModel>(responseService.errorResponse(101, ex.getCode(), ex.getArgs(), null), ex.getStatus());
+                }
+            
+            
+            
+            
+            
+            
+                // Handle Hibernate's ConstraintViolationException
+                @ExceptionHandler(ConstraintViolationException.class)
+                public ResponseEntity<ApiResponseModel> handleConstraintViolationException(ConstraintViolationException ex) {
+                    String constraintName = ex.getConstraintName();
+                    Map<String, String> errorDetails = new HashMap<>();
+                    errorDetails.put("constraint", constraintName);
+                    errorDetails.put("message", "A database constraint was violated.");
+            
+                    return new ResponseEntity<ApiResponseModel>(responseService.errorResponse("response.internalServerError", errorDetails), HttpStatus.INTERNAL_SERVER_ERROR);
+                }
+            
+            
+            
+            
+            
+            
+            
+                // Handle Spring's DataIntegrityViolationException
+                @ExceptionHandler(DataIntegrityViolationException.class)
+                public ResponseEntity<ApiResponseModel> handleDataIntegrityViolationException(DataIntegrityViolationException ex) {
+                    Map<String, String> errorDetails = new HashMap<>();
+                    errorDetails.put("message", "Data integrity violation occurred.");
+                    errorDetails.put("error", ex.getMostSpecificCause().getMessage());
+            
+                    return new ResponseEntity<ApiResponseModel>(responseService.errorResponse("response.internalServerError", errorDetails), HttpStatus.INTERNAL_SERVER_ERROR);
+                }
+            
+            
+                // Handle JPA's Exception
+                @ExceptionHandler(JpaSystemException.class)
+                public ResponseEntity<ApiResponseModel> handleJPAException(JpaSystemException ex) {
+                    Map<String, String> errorDetails = new HashMap<>();
+                    errorDetails.put("message", "Data integrity violation occurred.");
+                    errorDetails.put("error", ex.getMostSpecificCause().getMessage());
+            
+                    return new ResponseEntity<ApiResponseModel>(responseService.errorResponse("response.internalServerError", errorDetails), HttpStatus.INTERNAL_SERVER_ERROR);
+                }
+            
+            
+                @ExceptionHandler(NotImplemented.class)
+                public ResponseEntity<ApiResponseModel> handleNotImplementedException(NotImplemented exception) {
+                    return new ResponseEntity<ApiResponseModel>(responseService.errorResponse(404, "response.notFound", null), HttpStatus.NOT_FOUND);
+                }
+            
+                // @ExceptionHandler(Exception.class)
+                // public ResponseEntity<ApiResponseModel> handleException(Exception exception) {
+                //     return new ResponseEntity<ApiResponseModel>(responseService.errorResponse(500, "response.internalServerError", null), HttpStatus.INTERNAL_SERVER_ERROR);
+                // }
+            }
+        - MdcTaskDecorator.java
+          Content:
+            package wise.middlewares;
+            
+            import org.slf4j.MDC;
+            import org.springframework.core.task.TaskDecorator;
+            
+            import java.util.Map;
+            
+            public class MdcTaskDecorator implements TaskDecorator {
+            
+                @SuppressWarnings("null")
+                @Override
+                public Runnable decorate(Runnable runnable) {
+                    Map<String, String> contextMap = MDC.getCopyOfContextMap();
+                    return () -> {
+                        if (contextMap != null) {
+                            MDC.setContextMap(contextMap);
+                        }
+                        try {
+                            runnable.run();
+                        } finally {
+                            MDC.clear();
+                        }
+                    };
+                }
+            }
+        - MyInterceptor.java
+          Content:
+            package wise.middlewares;
+            
+            import org.slf4j.MDC;
+            import org.springframework.stereotype.Component;
+            import org.springframework.web.servlet.HandlerInterceptor;
+            import jakarta.servlet.http.HttpServletRequest;
+            import jakarta.servlet.http.HttpServletResponse;
+            
+            // import org.slf4j.Logger;
+            // import org.slf4j.LoggerFactory;
+            
+            import wise.common.RequestContext;
+            
+            import java.util.UUID;
+            
+            @Component
+            public class MyInterceptor implements HandlerInterceptor {
+            
+                // private static final Logger logger = LoggerFactory.getLogger(MyInterceptor.class);
+            
+                @Override
+                public boolean preHandle(@SuppressWarnings("null") HttpServletRequest request, @SuppressWarnings("null") HttpServletResponse response, @SuppressWarnings("null") Object handler) throws Exception {
+            
+                    // Set request time for time taken calculation
+                    RequestContext.set("request_time", System.currentTimeMillis());
+            
+                    // Generate or retrieve traceId
+                    String traceId = request.getHeader("traceId");
+                    if (traceId == null || traceId.isEmpty()) {
+                        traceId = UUID.randomUUID().toString();
+                    }
+            
+                    // Generate spanId
+                    String spanId = UUID.randomUUID().toString();
+            
+                    // Set traceId and spanId in MDC
+                    MDC.put("traceId", traceId);
+                    MDC.put("spanId", spanId);
+            
+                    // Optionally, add traceId and spanId to response headers
+                    response.addHeader("traceId", traceId);
+                    response.addHeader("spanId", spanId);
+            
+                    return true;
+                }
+            
+                @Override
+                public void afterCompletion(@SuppressWarnings("null") HttpServletRequest request, @SuppressWarnings("null") HttpServletResponse response,
+                                            @SuppressWarnings("null") Object handler, @SuppressWarnings("null") Exception ex) throws Exception {
+                    // Clean up MDC to prevent memory leaks
+                    // print all MDC values to log
+                    // MDC.getCopyOfContextMap().forEach((key, value) -> logger.info("MDC Key: {}, Value: {}", key, value));
+            
+                    MDC.remove("traceId");
+                    MDC.remove("spanId");
+                }
+            }
+      + models
+        - BaseEntity.java
+          Content:
+            package wise.models;
+            
+            import lombok.AllArgsConstructor;
+            import lombok.Data;
+            import lombok.NoArgsConstructor;
+            
+            import jakarta.persistence.*;
+            import java.time.LocalDateTime;
+            
+            import org.hibernate.annotations.CreationTimestamp;
+            import org.hibernate.annotations.UpdateTimestamp;
+            import lombok.experimental.SuperBuilder;
+            
+            
+            @MappedSuperclass
+            @Data
+            @NoArgsConstructor
+            @AllArgsConstructor
+            @SuperBuilder
+            public abstract class BaseEntity {
+            
+                @CreationTimestamp
+                @Column(updatable = false, nullable = false)
+                private LocalDateTime createdAt;
+            
+                @UpdateTimestamp
+                @Column(nullable = false)
+                private LocalDateTime updatedAt;
+            }
+        - DepartmentEntity.java
+          Content:
+            package wise.models;
+            
+            import jakarta.persistence.*;
+            import org.hibernate.annotations.SoftDelete;
+            import lombok.Data;
+            import lombok.EqualsAndHashCode;
+            
+            
+            @Entity
+            @Table(name = "WN_USER_DEPARTMENTS")
+            @SoftDelete
+            @EqualsAndHashCode(callSuper = true)
+            @Data
+            public class DepartmentEntity extends BaseEntity {
+            
+                @Id
+                @Column(name = "USER_DEPT_CODE", nullable = false, columnDefinition = "Nvarchar(10)")
+                private String deptCode;
+            
+                @Column(name = "USER_DEPT_NAME", nullable = false, unique = true, columnDefinition = "Nvarchar(50)")
+                private String deptName;
+            }
+        - UniversityEntity.java
+          Content:
+            package wise.models;
+            
+            import jakarta.persistence.*;
+            import org.hibernate.annotations.SoftDelete;
+            import lombok.Data;
+            import lombok.EqualsAndHashCode;
+            
+            
+            @Entity
+            @Table(name = "WN_UNIVERSITY")
+            @SoftDelete
+            @EqualsAndHashCode(callSuper = true)
+            @Data
+            public class UniversityEntity extends BaseEntity {
+            
+                @Id
+                @Column(name = "UNIVERSITY_CODE", nullable = false)
+                private Integer universityCode;
+            
+                @Column(name = "UNIVERSITY_NAME", nullable = false, unique = true, columnDefinition = "Nvarchar(50)")
+                private String universityName;
+            
+                @Column(name = "UNIV_ADDRESS", columnDefinition = "Nvarchar(255)")
+                private String universityAddress;
+            
+                @Column(name = "UNIV_CITY", columnDefinition = "Nvarchar(50)")
+                private String universityCity;
+            
+                @Column(name = "UNIV_STATE", columnDefinition = "Nvarchar(50)")
+                private String universityState;
+            
+                @Column(name = "UNIV_ZIP", columnDefinition = "Nvarchar(10)")
+                private String universityZip;
+            
+                @Column(name = "UNIV_PHONE", columnDefinition = "Nvarchar(15)")
+                private String universityPhone;
+            
+                @Column(name = "UNIV_PHONE_ALT", columnDefinition = "Nvarchar(15)")
+                private String universityPhoneAlt;
+            
+                @Column(name = "UNIV_WEBSITE", columnDefinition = "varchar(255)")
+                private String universityWebsite;
+            
+                @Column(name = "UNIV_LATITUDE")
+                private Float universityLatitude;
+            
+                @Column(name = "UNIV_LONGITUDE")
+                private Float universityLongitude;
+            }
+        - UserEntity.java
+          Content:
+            package wise.models;
+            
+            import lombok.AllArgsConstructor;
+            import lombok.Builder;
+            import lombok.Data;
+            import lombok.NoArgsConstructor;
+            
+            import jakarta.persistence.*;
+            import java.time.LocalDateTime;
+            
+            import org.hibernate.annotations.CreationTimestamp;
+            import org.hibernate.annotations.SoftDelete;
+            import org.hibernate.annotations.UpdateTimestamp;
+            
+            @Entity
+            @Table(name = "wn_usr")
+            @Data
+            @NoArgsConstructor
+            @AllArgsConstructor
+            @Builder
+            @SoftDelete
+            public class UserEntity {
+                
+                @Id
+                @GeneratedValue(strategy = GenerationType.IDENTITY)
+                private Long id;
+            
+                // use Nvarchar(10) for user_id
+                @Column(name = "user_id", nullable = false , unique = true, columnDefinition = "Nvarchar(10)")
+                private String user_id;
+            
+                @Column(name = "user_name", nullable = false, columnDefinition = "Nvarchar(50)")
+                private String user_name;
+            
+                @Column(name = "barcode", nullable = false, columnDefinition = "Nvarchar(50)")
+                private String barcode;
+            
+                @Column(name = "school_no", nullable = false, columnDefinition = "Nvarchar(50)")
+                private String school_no;
+            
+                @Column(name = "position_code", nullable = false, columnDefinition = "Nvarchar(10)")
+                private String position_code;
+            
+                @Column(name = "position_name", nullable = false, columnDefinition = "Nvarchar(50)")
+                private String position_name;
+            
+                @Column(name = "dept_code", nullable = false, columnDefinition = "Nvarchar(10)")
+                private String dept_code;
+            
+                @Column(name = "dept_name", nullable = false, columnDefinition = "Nvarchar(50)")
+                private String dept_name;
+            
+                @Column(name = "status_code", nullable = false, columnDefinition = "Nvarchar(10)")
+                private String status_code;
+            
+                @Column(name = "status_name", nullable = false, columnDefinition = "Nvarchar(50)")
+                private String status_name;
+            
+                @Column(name = "phone", nullable = true, columnDefinition = "Nvarchar(20)")
+                private String phone;
+            
+                @Column(name = "mobile", nullable = true, columnDefinition = "Nvarchar(20)")
+                private String mobile;
+            
+                @Column(name = "address", nullable = true, columnDefinition = "Nvarchar(100)")
+                private String address;
+            
+                @Column(name = "usr_password", nullable = false, columnDefinition = "Nvarchar(255)")
+                private String usr_password;
+            
+                @Column(name = "usr_password_change_date", nullable = false, columnDefinition = "Nvarchar(14)")
+                private String usr_password_change_date;
+            
+                @Column(name = "auth_token", nullable = true, columnDefinition = "Nvarchar(255)")
+                private String auth_token;
+            
+               @CreationTimestamp
+                @Column(updatable = false)
+                private LocalDateTime createdAt;
+            
+                @UpdateTimestamp
+                private LocalDateTime updatedAt;
+            }
+      + repository
+        - DepartmentRepo.java
+          Content:
+            package wise.repository;
+            
+            import org.springframework.data.jpa.repository.JpaRepository;
+            import org.springframework.stereotype.Repository;
+            import wise.models.*;
+            
+            @Repository
+            public interface DepartmentRepo extends JpaRepository<DepartmentEntity, String> {
+                boolean existsByDeptName(String dept_name);
+                // Exists by department name and other than the given department code
+                boolean existsByDeptNameAndDeptCodeNot(String dept_name, Integer dept_code);
+            }
+        - UniversityRepo.java
+          Content:
+            package wise.repository;
+            
+            import org.springframework.data.jpa.repository.JpaRepository;
+            import org.springframework.data.jpa.repository.Query;
+            import org.springframework.stereotype.Repository;
+            import wise.models.*;
+            
+            @Repository
+            public interface UniversityRepo extends JpaRepository<UniversityEntity, Integer> {
+                boolean existsByUniversityName(String UNIVERSITY_NAME);
+                // Exists by department name and other than the given department code
+                boolean existsByUniversityNameAndUniversityCodeNot(String UNIVERSITY_NAME, Integer UNIVERSITY_CODE);
+            
+                // Find max id
+                @Query("SELECT (COALESCE(MAX(d.universityCode), 100) + 1) FROM UniversityEntity d")
+                Integer findMaxId();
+            }
+      + routes
+        + kiosk
+          - KioskRoutes.java
+            Content:
+              package wise.routes.kiosk;
+              
+              import org.springframework.web.bind.annotation.RequestMapping;
+              import org.springframework.web.bind.annotation.RestController;
+              
+              import io.swagger.v3.oas.annotations.tags.Tag;
+              
+              @RestController
+              @Tag(name = "Kiosk", description = "Mobile-specific APIs")
+              @RequestMapping("/kiosk")
+              public class KioskRoutes {
+                  
+              }
+        + mobile
+          - MobileRoutes.java
+            Content:
+              package wise.routes.mobile;
+              
+              import org.springframework.web.bind.annotation.RequestMapping;
+              import org.springframework.web.bind.annotation.RestController;
+              
+              import io.swagger.v3.oas.annotations.tags.Tag;
+              
+              @RestController
+              @Tag(name = "Mobile", description = "Mobile-specific APIs")
+              @RequestMapping("/mobile")
+              public class MobileRoutes {
+              
+              
+                 
+              }
+        + web
+          - ConfigController.java
+            Content:
+              package wise.routes.web;
+              
+              import jakarta.validation.Valid;
+              import org.springframework.http.ResponseEntity;
+              import org.springframework.web.bind.annotation.*;
+              
+              import io.swagger.v3.oas.annotations.Operation;
+              import io.swagger.v3.oas.annotations.tags.Tag;
+              import wise.dto.ApiResponseModel;
+              import wise.dto.config.SysConfigDto;
+              // import org.slf4j.Logger;
+              // import org.slf4j.LoggerFactory;
+              import wise.services.*;
+              
+              import org.springframework.beans.factory.annotation.Autowired;
+              import org.springframework.cloud.context.scope.refresh.RefreshScope;
+              
+              import java.util.List;
+              
+              @RestController
+              @RequestMapping("/web/config")
+              @Tag(name = "Config", description = "System Configuration APIs")
+              public class ConfigController {
+              
+                  // private static final Logger logger = LoggerFactory.getLogger(ConfigController.class);
+              
+                  private final ConfigurationService configurationService;
+                  private final ResponseService responseService;
+              
+                  public ConfigController(ConfigurationService configurationService, ResponseService responseService) {
+                      this.configurationService = configurationService;
+                      this.responseService = responseService;
+                  }
+              
+                  @Autowired
+                  private RefreshScope refreshScope;
+              
+                  @Operation(summary = "System properties configuration APIs")
+                  @PostMapping("system_properties_update")
+                  public ResponseEntity<ApiResponseModel> updateConfig(@Valid @RequestBody List<SysConfigDto> sysConfigDto) {
+                      for (SysConfigDto config : sysConfigDto) {
+                          String key = config.getKey();
+                          String value = config.getValue();
+              
+                          configurationService.updateProperty(key, value);
+                      }
+              
+                      // Trigger refresh of the configuration by calling refresh scope
+                      refreshScope.refreshAll();
+              
+                      // Optionally restart the application context (depending on your need)
+                      // restartEndpoint.restart();
+              
+                      return ResponseEntity.ok(responseService.successResponse("sysproperties.updated", null));
+                  }
+              }
+          - DepartmentController.java
+            Content:
+              package wise.routes.web;
+              
+              import jakarta.validation.Valid;
+              import org.springframework.data.domain.Pageable;
+              import org.springframework.data.web.PageableDefault;
+              import org.springframework.http.ResponseEntity;
+              import org.springframework.web.bind.annotation.*;
+              
+              import io.swagger.v3.oas.annotations.Operation;
+              import io.swagger.v3.oas.annotations.tags.Tag;
+              import wise.dto.ApiResponseModel;
+              import wise.dto.departments.CreateDepartmentsDto;
+              import wise.dto.departments.UpdateDepartmentsDto;
+              
+              
+              import org.springframework.http.HttpStatus;
+              import org.springframework.data.domain.Page;
+              import org.slf4j.Logger;
+              import org.slf4j.LoggerFactory;
+              import wise.models.*;
+              import wise.services.*;
+              import java.util.Optional;
+              import wise.utils.helper.RequestUtil;;
+              
+              @RestController
+              @RequestMapping("/web/departments")
+              @Tag(name = "Department", description = "Department-specific APIs")
+              public class DepartmentController {
+              
+                  private static final Logger logger = LoggerFactory.getLogger(DepartmentController.class);
+              
+                  private final DepartmentsService deptService;
+                  private final ResponseService responseService;
+              
+                  public DepartmentController(DepartmentsService deptService, ResponseService responseService) {
+                      this.deptService = deptService;
+                      this.responseService = responseService;
+                  }
+              
+                  @PostMapping
+                  @Operation(summary = "Create a new department")
+                  public ResponseEntity<ApiResponseModel> createDepartment(@Valid @RequestBody CreateDepartmentsDto deptDto) {
+                      
+                      DepartmentEntity deptEntity = new DepartmentEntity();
+                      RequestUtil.PatchDataModifier(deptEntity, deptDto);
+                      deptService.create(deptEntity);
+              
+                      logger.info("Department created successfully: ID={}", deptEntity.getDeptCode());
+                      return ResponseEntity.ok(responseService.successResponse("departments.created", null));
+              
+                  }
+              
+                  @GetMapping
+                  @Operation(summary = "Get all departments")
+                  public ResponseEntity<ApiResponseModel> getAllDepartments(@PageableDefault Pageable pageable) {
+                      Page<DepartmentEntity> departments = deptService.getAllDepartments(pageable);
+                      logger.info("Departments retrieved successfully");
+                      return ResponseEntity.ok(responseService.successResponse(departments));
+                  }
+              
+                  @GetMapping("/{code}")
+                  @Operation(summary = "Get a department by code")
+                  public ResponseEntity<ApiResponseModel> getDepartmentById(@PathVariable String code) {
+                      Optional<DepartmentEntity> department = deptService.getByCode(code);
+                      if (!department.isPresent()) {
+                          logger.warn("Department not found: ID={}", code);
+                          return new ResponseEntity<>(responseService.errorResponse("departments.notFound", null), HttpStatus.NOT_FOUND);
+                      }
+              
+                      logger.info("Department retrieved successfully: ID={}", code);
+                      return ResponseEntity.ok(responseService.successResponse(department.get()));
+                  }
+              
+                  @PutMapping("/{code}")
+                  @Operation(summary = "Update a department by code")
+                  public ResponseEntity<ApiResponseModel> updateDepartment(@PathVariable String code, @Valid @RequestBody UpdateDepartmentsDto deptDto) {
+                      DepartmentEntity deptEntity = new DepartmentEntity();
+                      RequestUtil.PatchDataModifier(deptEntity, deptDto);
+                      deptEntity.setDeptCode(code);
+              
+                      DepartmentEntity savedEntity = deptService.updateDepartment(code, deptEntity);
+                      if (savedEntity == null) {
+                          logger.warn("Department not found: ID={}", code);
+                          return new ResponseEntity<ApiResponseModel>(responseService.errorResponse("departments.notFound", null), HttpStatus.NOT_FOUND);
+                      }
+              
+                      logger.info("Department updated successfully: ID={}", code);
+                      return ResponseEntity.ok(responseService.successResponse("departments.updated", null));
+                  }
+              
+                  @DeleteMapping("/{code}")
+                  @Operation(summary = "Delete a department by code")
+                  public ResponseEntity<ApiResponseModel> deleteDepartment(@PathVariable String code) {
+              
+                      Optional<DepartmentEntity> department = deptService.getByCode(code);
+                      if (!department.isPresent()) {
+                          logger.warn("Department not found: ID={}", code);
+                          return new ResponseEntity<>(responseService.errorResponse("departments.notFound", null), HttpStatus.NOT_FOUND);
+                      }
+              
+                      deptService.deleteDepartment(code);
+              
+                      logger.info("Department deleted successfully: ID={}", code);
+                      return ResponseEntity.ok(responseService.successResponse("departments.deleted", null));
+                  }
+              }
+          - __
+            Content:
+              package wise.routes.web;
+              
+              import jakarta.validation.Valid;
+              
+              import org.springframework.beans.factory.annotation.Autowired;
+              import org.springframework.cloud.context.scope.refresh.RefreshScope;
+              import org.springframework.http.ResponseEntity;
+              import org.springframework.web.bind.annotation.*;
+              
+              import io.swagger.v3.oas.annotations.Operation;
+              import io.swagger.v3.oas.annotations.tags.Tag;
+              import wise.dto.ApiResponseModel;
+              import wise.dto.SysConfigDto;
+              import wise.services.*;
+              
+              import java.util.List;
+              
+              @RestController
+              @RequestMapping("/web")
+              @Tag(name = "Web APIs", description = "APIs for the web platform")
+              public class WebRoutes {
+              
+                  @Autowired
+                  private ConfigurationService configurationService;
+              
+                  @Autowired
+                  private ResponseService responseService;
+              
+                  @Autowired
+                  private RefreshScope refreshScope;
+              
+                  @Tag(name = "Config", description = "System Configuration APIs")
+                  @Operation(summary = "System properties configuration APIs")
+                  @PostMapping("system_properties_config/update")
+                  public ResponseEntity<ApiResponseModel> updateConfig(@Valid @RequestBody List<SysConfigDto> sysConfigDto) {
+                      for (SysConfigDto config : sysConfigDto) {
+                          String key = config.getKey();
+                          String value = config.getValue();
+              
+                          configurationService.updateProperty(key, value);
+                      }
+              
+                      // Trigger refresh of the configuration by calling refresh scope
+                      refreshScope.refreshAll();
+              
+                      // Optionally restart the application context (depending on your need)
+                      // restartEndpoint.restart();
+              
+                      return ResponseEntity.ok(responseService.successResponse("sysproperties.updated", null));
+                  }
+              }
+      + services
+        - ConfigurationService.java
+          Content:
+            package wise.services;
+            
+            import org.springframework.beans.factory.annotation.Value;
+            import org.springframework.stereotype.Service;
+            
+            import wise.common.CustomException;
+            
+            import java.io.FileOutputStream;
+            import java.io.IOException;
+            import java.nio.file.Files;
+            import java.nio.file.Paths;
+            import java.util.Properties;
+            
+            @Service
+            public class ConfigurationService {
+            
+                @Value("${spring.profiles.active}")
+                private String activeProfile;
+            
+                public Properties loadProperties() {
+                    String filePath = "C:/SpringConfig/application-" + activeProfile + ".properties";
+                    Properties properties = new Properties();
+                    try {
+                        properties.load(Files.newInputStream(Paths.get(filePath)));
+                    } catch (IOException e) {
+                        throw new CustomException("sysproperties.fileNotFound");
+                    }
+                    
+                    return properties;
+                }
+            
+                public void updateProperty(String key, String value) {
+                    String filePath = "C:/SpringConfig/application-" + activeProfile + ".properties";
+                    Properties properties = loadProperties();
+                    properties.setProperty(key, value);
+            
+                    try (FileOutputStream outputStream = new FileOutputStream(filePath)) {
+                        properties.store(outputStream, null); // Save updated properties
+                    } 
+                    catch (IOException e) {
+                        throw new CustomException("sysproperties.updateFailed");
+                    }
+                }
+            }
+        - DepartmentsService.java
+          Content:
+            package wise.services;
+            
+            import java.util.List;
+            import java.util.Optional;
+            
+            import org.apache.commons.lang3.RandomStringUtils;
+            import org.springframework.data.domain.Page;
+            import org.springframework.stereotype.Service;
+            import org.springframework.transaction.annotation.Transactional;
+            
+            import wise.repository.DepartmentRepo;
+            import wise.models.DepartmentEntity;
+            import wise.common.CustomException;
+            import org.springframework.data.domain.Pageable;
+            
+            
+            
+            @Service
+            public class DepartmentsService {
+            
+                private DepartmentRepo deptRepo;
+            
+                public DepartmentsService(DepartmentRepo deptRepo) {
+                    this.deptRepo = deptRepo;
+                }
+            
+                // ------------------------------------- List all departments -------------------------------------
+                @Transactional(readOnly = true)
+                public List<DepartmentEntity> getAll() {
+                    return deptRepo.findAll();
+                }
+            
+                // ------------------------------------- List all departments with pagination -------------------------------------
+                @Transactional(readOnly = true)
+                public Page<DepartmentEntity> getAllDepartments(Pageable pagable) {
+                    return deptRepo.findAll(pagable);
+                }
+            
+                
+                // ------------------------------------- Get department by ID -------------------------------------
+                @Transactional(readOnly = true)
+                public Optional<DepartmentEntity> getByCode(String code) {
+                    return deptRepo.findById(code);
+                }
+            
+                // ------------------------------------- Create a new department -------------------------------------
+                @Transactional
+                public DepartmentEntity create(DepartmentEntity deptEntity) {
+                    // Find Max Code 1,8 characters and increment by 1
+                    String newId = RandomStringUtils.randomAlphanumeric(17).toUpperCase();
+                    deptEntity.setDeptCode(newId);
+            
+                    // Check if department already exists in the database
+                    if(deptRepo.existsByDeptName(deptEntity.getDeptName())) {
+                        throw new CustomException("departments.name.alreadyExists");
+                    }
+                    return deptRepo.save(deptEntity);
+                }
+            
+                // ------------------------------------- Update a department by ID -------------------------------------
+                public DepartmentEntity updateDepartment(String code, DepartmentEntity deptEntity) {
+                    return deptRepo.findById(code)
+                        .map(department -> {
+                            department.setDeptName(deptEntity.getDeptName());
+                            return deptRepo.save(department);
+                        })
+                        .orElseThrow(() -> new CustomException("departments.notFound"));
+                }    
+            
+                // ------------------------------------- Delete a department by ID -------------------------------------
+                @Transactional
+                public boolean deleteDepartment(String code) {
+                    if(!deptRepo.existsById(code)) {
+                        return false;
+                    }
+            
+                    deptRepo.deleteById(code);
+                    return true;
+                }
+            }
+        - ResponseService.java
+          Content:
+            package wise.services;
+            
+            import wise.dto.ApiResponseModel;
+            
+            import org.springframework.beans.factory.annotation.Autowired;
+            import org.springframework.context.MessageSource;
+            import org.springframework.context.i18n.LocaleContextHolder;
+            import org.springframework.stereotype.Service;
+            
+            import io.micrometer.common.lang.Nullable;
+            
+            @Service
+            public class ResponseService {
+            
+                @Autowired
+                private MessageSource messageSource;
+            
+            
+                public ApiResponseModel successResponse(@Nullable int code, @Nullable String msgcode, @Nullable Object[] args, @Nullable Object data) {
+                    code = (code == 0) ? 200 : code;
+                    msgcode = (msgcode == null) ? "response.success" : msgcode;
+            
+                    String message = messageSource.getMessage(msgcode, args, LocaleContextHolder.getLocale());
+                    return new ApiResponseModel(true, code, data, message);
+                }
+            
+                public ApiResponseModel successResponse(@Nullable int code, @Nullable String msgcode, @Nullable Object data) {
+                    return successResponse(code, msgcode, null, data);
+                }
+            
+                public ApiResponseModel successResponse(@Nullable String msgcode, @Nullable Object data) {
+                    return successResponse(200, msgcode, null, data);
+                }
+            
+                public ApiResponseModel successResponse(@Nullable Object data) {
+                    return successResponse(200, null, null, data);
+                }
+            
+                public ApiResponseModel successResponse() {
+                    return successResponse(200, null, null, null);
+                }
+            
+            
+            
+            
+                public ApiResponseModel errorResponse(@Nullable int code, @Nullable String msgcode, @Nullable Object[] args, @Nullable Object data) {
+                    code = (code == 0 || code == 200) ? 500 : code;
+                    msgcode = (msgcode == null) ? "response.failed" : msgcode;
+            
+                    String message = messageSource.getMessage(msgcode, args, LocaleContextHolder.getLocale());
+                    return new ApiResponseModel(false, code, data, message);
+                }
+            
+                public ApiResponseModel errorResponse(@Nullable int code, @Nullable String msgcode, @Nullable Object data) {
+                    return errorResponse(code, msgcode, null, data);
+                }
+            
+                public ApiResponseModel errorResponse(@Nullable String msgcode, @Nullable Object data) {
+                    return errorResponse(500, msgcode, null, data);
+                }
+            
+                public ApiResponseModel errorResponse(@Nullable Object data) {
+                    return errorResponse(500, null, null, data);
+                }
+            
+                public ApiResponseModel errorResponse() {
+                    return errorResponse(500, null, null, null);
+                }
+            }
+      + utils
+        + helper
+          - DateTime.java
+            Content:
+              package wise.utils.helper;
+              
+              import java.time.LocalDate;
+              import java.time.LocalDateTime;
+              import java.time.LocalTime;
+              import java.time.format.DateTimeFormatter;
+              
+              public class DateTime {
+                  private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
+                  private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HHmmss");
+                  private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+              
+                  private DateTime() {}
+              
+                  // DATE -> yyyyMMdd
+                  public static LocalDate currentDate() {
+                      String now = LocalDate.now().format(DATE_FORMATTER);
+                      return LocalDate.parse(now, DATE_FORMATTER);
+                  }
+              
+                  public static LocalDate dateParser(String date) {
+                      return LocalDate.parse(date, DATE_FORMATTER);
+                  }
+              
+                  public static String currentDateString() {
+                      return LocalDate.now().format(DATE_FORMATTER);
+                  }
+              
+                  // TIME -> HHmmss
+                  public static LocalTime currentTime() {
+                      String now = LocalTime.now().format(TIME_FORMATTER);
+                      return LocalTime.parse(now, TIME_FORMATTER);
+                  }
+              
+                  public static LocalTime timeParser(String time) {
+                      return LocalTime.parse(time, TIME_FORMATTER);
+                  }
+              
+                  public static String currentTimeString() {
+                      return LocalTime.now().format(TIME_FORMATTER);
+                  }
+              
+                  // DATETIME WITH SPACE -> yyyyMMddHHmmss
+                  public static LocalDateTime currentDateTime() {
+                      String now = LocalDateTime.now().format(DATETIME_FORMATTER);
+                      return LocalDateTime.parse(now, DATETIME_FORMATTER);
+                  }
+              
+                  public static LocalDateTime dateTimeParser(String dateTime) {
+                      return LocalDateTime.parse(dateTime, DATETIME_FORMATTER);
+                  }
+              
+                  public static String currentDateTimeString() {
+                      return LocalDateTime.now().format(DATETIME_FORMATTER);
+                  }
+              }
+          - RequestUtil.java
+            Content:
+              package wise.utils.helper;
+              import java.lang.reflect.Field;
+              
+              public class RequestUtil {
+                  /**
+                   * @apiNote It will change the existingData with the new data to be updated.
+                   * @paramtype <T>
+                   * @param existingData
+                   * @param newData
+                   */
+                  
+                  public static <T> void PatchDataModifier(T existingData, Object newData) {
+                      Class<?> clazz = existingData.getClass();
+                      Field[] fields = clazz.getDeclaredFields();
+                      
+                      for (Field field : fields) {
+                          field.setAccessible(true);
+                          try {
+                              // Look for a matching field in newData's class
+                              Field newField = newData.getClass().getDeclaredField(field.getName());
+                              newField.setAccessible(true);
+                              Object newValue = newField.get(newData);
+                              
+                              // Check if the types of the fields are compatible
+                              if (newValue != null && field.getType().isAssignableFrom(newField.getType())) {
+                                  field.set(existingData, newValue);  // Set the value if types are compatible
+                              } else {
+                                  System.out.println("Type mismatch for field: " + field.getName());
+                              }
+                          }
+                          catch (NoSuchFieldException e) {
+                              // 
+                          }
+                          catch (IllegalAccessException e) {
+                              // Handle cases where the field doesn't exist or is inaccessible
+                              e.printStackTrace();
+                          }
+                      }
+                  }
+                  
+              }
+      - EGovBootApplication.java
+        Content:
+          package wise;
+          
+          import org.springframework.boot.SpringApplication;
+          import org.springframework.boot.autoconfigure.SpringBootApplication;
+          import org.springframework.data.web.config.EnableSpringDataWebSupport;
+          import org.springframework.data.web.config.EnableSpringDataWebSupport.PageSerializationMode;
+          
+          
+          @SpringBootApplication
+          @EnableSpringDataWebSupport(pageSerializationMode = PageSerializationMode.VIA_DTO)
+          public class EGovBootApplication {
+              public static void main(String[] args) {
+                  SpringApplication.run(EGovBootApplication.class, args);
+              }
+          }
+      - ServletInitializer.java
+        Content:
+          package wise;
+          
+          import org.springframework.boot.builder.SpringApplicationBuilder;
+          import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;
+          
+          public class ServletInitializer extends SpringBootServletInitializer {
+          
+          	@Override
+          	protected SpringApplicationBuilder configure(SpringApplicationBuilder application) {
+          		return application.sources(EGovBootApplication.class);
+          	}
+          
+          }
+  + resources
+    + lang
+      - messages.properties
+        Content:
+          response.failed=Request Failed
+          response.success=Success
+          response.notFound=Not Found
+          response.badRequest=Bad Request
+          response.unauthorized=Unauthorized Access
+          response.forbidden=Forbidden
+          response.internalServerError=Internal Server Error
+          response.notImplemented=Not Implemented
+          response.serviceUnavailable=Service Unavailable
+          response.validationError=Validation Error
+          
+          # System Properties Configuration Related Messages
+          sysproperties.key.required=Key is required
+          sysproperties.value.required=Value is required
+          sysproperties.fleNotFound=System properties file not found
+          sysproperties.updateFailed=System properties update failed
+          sysproperties.updated=System properties updated
+          
+          
+          departments.name=Department Name
+          departments.name.required=Department name is required
+          departments.name.alreadyExists=Department already exists
+          departments.code=Department Code
+          departments.code.required=Department code is required
+          departments.code.alreadyExists=Department code already exists
+          departments.notFound=Department not found
+          departments.created=Department created
+          departments.updated=Department updated
+          departments.deleted=Department deleted
+          
+          
+          floor.number.required=Floor number is required
+          floor.name.required=Floor name is required
+          floor.libraryId.required=Library ID is required
+          floor.number.alreadyExists=Floor number already exists
+          floor.notFound=Floor not found
+          floor.created=Floor created successfully
+          floor.updated=Floor updated successfully
+          floor.deleted=Floor deleted successfully
+      - messages_ko.properties
+        Content:
+          response.failed=?îÏ≤≠ ?§Ìå®
+          response.success=?±Í≥µ
+          response.notFound=Ï∞æÏùÑ ???ÜÏùå
+          response.badRequest=?òÎ™ª???îÏ≤≠
+          response.unauthorized=?∏Ï¶ù?òÏ? ?äÏ? ?ëÍ∑º
+          response.forbidden=Í∏àÏ???
+          response.internalServerError=?¥Î? ?úÎ≤Ñ ?§Î•ò
+          response.notImplemented=Íµ¨ÌòÑ?òÏ? ?äÏùå
+          response.serviceUnavailable=?úÎπÑ???¥Ïö© Î∂àÍ?
+          response.validationError=Í≤ÄÏ¶??§Î•ò
+          
+          departments.name=Î∂Ä???¥Î¶Ñ
+          # departments.name.required=Î∂Ä???¥Î¶Ñ?Ä ?ÑÏàò ??™©?ÖÎãà??
+          departments.name.alreadyExists=Î∂Ä???¥Î¶Ñ???¥Î? Ï°¥Ïû¨?©Îãà??
+          departments.code=Î∂Ä??ÏΩîÎìú
+          departments.code.required=Î∂Ä??ÏΩîÎìú???ÑÏàò ??™©?ÖÎãà??
+          departments.code.alreadyExists=Î∂Ä??ÏΩîÎìúÍ∞Ä ?¥Î? Ï°¥Ïû¨?©Îãà??
+          departments.notFound=Î∂Ä?úÎ? Ï∞æÏùÑ ???ÜÏäµ?àÎã§
+          departments.created=Î∂Ä?úÍ? ?ùÏÑ±?òÏóà?µÎãà??
+          departments.updated=Î∂Ä?úÍ? ?ÖÎç∞?¥Ìä∏?òÏóà?µÎãà??
+          departments.deleted=Î∂Ä?úÍ? ??†ú?òÏóà?µÎãà??
+    + META-INF
+      - additional-spring-configuration-metadata.json
+        Content:
+          {"properties": [
+            {
+              "name": "wn.config.api.key.master",
+              "type": "java.lang.String",
+              "description": "API key for All route group",
+              "defaultValue": ""
+            },
+            {
+              "name": "wn.config.api.key.web",
+              "type": "java.lang.String",
+              "description": "API key for web route group",
+              "defaultValue": ""
+            },
+            {
+              "name": "wn.config.api.key.mobile",
+              "type": "java.lang.String",
+              "description": "API key for mobile route group",
+              "defaultValue": ""
+            },
+            {
+              "name": "wn.config.api.key.kiosk",
+              "type": "java.lang.String",
+              "description": "API key for kiosk route group",
+              "defaultValue": ""
+            },
+            {
+              "name": "allowed.origins",
+              "type": "java.lang.String",
+              "description": "A description for 'allowed.origins'",
+              "defaultValue" : ""
+            }
+          ]}
+    + public
+      - index.html
+        Content:
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Document</title>
+          </head>
+          <body>
+              <h1>This is a Test Page for application Starup</h1>
+              <a href="swagger-ui/index.html"><h4>Go to API Documentation</h4></a>
+              
+          </body>
+          </html>
+    - application-dev.properties
+      Content:
+        # MSSQL Database Connection
+        spring.datasource.driver-class-name=com.microsoft.sqlserver.jdbc.SQLServerDriver
+        spring.datasource.url=jdbc:sqlserver://localhost:1433;databaseName=neoscomanager;encrypt=true;trustServerCertificate=true
+        spring.datasource.username=sa
+        spring.datasource.password=mypassword!
+        
+        # Springdoc Swagger UI Configuration
+        springdoc.api-docs.enabled=true
+        springdoc.swagger-ui.enabled=true
+        springdoc.swagger-ui.groups-order=DESC
+        
+        # Logging Configuration
+        logging.level.org.hibernate.SQL=INFO
+        logging.level.org.hibernate.type.descriptor.sql.BasicBinder=INFO
+        logging.level.org.springframework=INFO
+        logging.level.org.apache.catalina=INFO
+        spring.jpa.show-sql=true
+        
+        
+        # Wise Neosco Custom Configuration
+        # wn.config.api.key.master=I_CAN_DO_ANYTHING
+        # wn.config.api.key.web=I_WILL_ACCESS_VIA_WEB
+        # wn.config.api.key.mobile=I_WILL_ACCESS_VIA_MOBILE
+        # wn.config.api.key.kiosk=I_WILL_ACCESS_VIA_KIOSK
+    - application.properties
+      Content:
+        # Server Configuration
+        server.port=8080
+        spring.main.allow-bean-definition-overriding=true
+        
+        # Set Active Profile
+        # spring.profiles.active=dev
+        spring.profiles.active=dev
+        
+        # Connection Pooling using HikariCP
+        spring.datasource.type=com.zaxxer.hikari.HikariDataSource
+        
+        # HikariCP Connection Pooling
+        spring.datasource.hikari.pool-name=HikariCP
+        spring.datasource.hikari.maximum-pool-size=200
+        spring.datasource.hikari.minimum-idle=10
+        spring.datasource.hikari.idle-timeout=30000
+        spring.datasource.hikari.connection-timeout=30000
+        spring.datasource.hikari.max-lifetime=1800000
+        spring.datasource.hikari.initialization-fail-timeout=-1
+        spring.datasource.hikari.validation-timeout=5000
+        
+        # Hibernate JPA Configuration
+        spring.jpa.hibernate.ddl-auto=none
+        spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.SQLServerDialect
+        spring.jpa.properties.hibernate.format_sql=true
+        spring.jpa.open-in-view=false
+        
+        spring.jpa.properties.hibernate.temp.use_jdbc_metadata_defaults=false
+        
+        
+        # Spring Data REST Configuration
+        spring.data.rest.max-page-size=10
+        spring.data.web.pageable.one-indexed-parameters=false
+        
+        
+        
+        # Localization Configuration
+        spring.messages.basename=lang/messages
+        spring.messages.encoding=UTF-8
+        spring.messages.cache-duration=3600
+        spring.messages.use-code-as-default-message=true
+        spring.messages.fallback-to-system-locale=true
+        spring.web.locale=en
+        spring.web.locale-resolver=accept-header
+        
+        # Load External Configuration
+        management.endpoints.web.exposure.include=refresh,health,info
+        management.endpoint.health.show-details=always
+        logging.level.org.springframework.boot.context.config=DEBUG
+        
+        springdoc.swagger-ui.groups-order=DESC
+        
+        
+        
+        # Adjust logging levels if necessary
+        logging.level.org.springframework=INFO
+        logging.level.wise=INFO
+        
+        
+        
+        
+        
+        # spring.profiles.active=prod
+        
+        spring.config.import=optional:file:/C:/SpringConfig/application-${spring.profiles.active}.properties
+        allowed.origins=http://your-origin.com,http://another-origin.com
+    - logback-spring.xml
+      Content:
+        <?xml version="1.0" encoding="UTF-8"?>
+        <configuration  debug="true">
+        
+            <!-- Properties -->
+            <property name="LOG_PATH" value="logs"/>
+            <property name="LOG_FILE_NAME" value="application.log"/>
+            <property name="START_STOP_LOG_FILE_NAME" value="startup-shutdown.log"/>
+            <property name="NEOSCO_LOG_FILE_NAME" value="neosco-logs.log"/>
+            <property name="MAX_HISTORY" value="30"/>
+            <property name="TOTAL_SIZE_CAP" value="1GB"/>
+        
+            <!-- Define log patterns -->
+            <property name="DEFAULT_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} %5p [traceId=%X{traceId}] [%t] %-40.40logger{39} : %m%n"/>
+            <property name="NEOSCO_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} %5p %-40.40logger{39} : %m%n"/>
+        
+            <!-- Appender for Application Start/End Logs -->
+            <appender name="START_STOP_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+                <file>${LOG_PATH}/${START_STOP_LOG_FILE_NAME}</file>
+                <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+                    <fileNamePattern>${LOG_PATH}/${START_STOP_LOG_FILE_NAME}.%d{yyyy-MM-dd}.log</fileNamePattern>
+                    <maxHistory>${MAX_HISTORY}</maxHistory>
+                    <totalSizeCap>${TOTAL_SIZE_CAP}</totalSizeCap>
+                </rollingPolicy>
+                <encoder>
+                    <pattern>${DEFAULT_PATTERN}</pattern>
+                </encoder>
+            </appender>
+        
+            <!-- Appender for General Application Logs -->
+            <appender name="APPLICATION_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+                <file>${LOG_PATH}/${LOG_FILE_NAME}</file>
+                <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+                    <fileNamePattern>${LOG_PATH}/${LOG_FILE_NAME}.%d{yyyy-MM-dd}.log</fileNamePattern>
+                    <maxHistory>${MAX_HISTORY}</maxHistory>
+                    <totalSizeCap>${TOTAL_SIZE_CAP}</totalSizeCap>
+                </rollingPolicy>
+                <encoder>
+                    <pattern>${DEFAULT_PATTERN}</pattern>
+                </encoder>
+            </appender>
+        
+            <!-- Appender for Explicit Logs Saved by Logger -->
+            <appender name="NEOSCO_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+                <file>${LOG_PATH}/${NEOSCO_LOG_FILE_NAME}</file>
+                <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+                    <fileNamePattern>${LOG_PATH}/${NEOSCO_LOG_FILE_NAME}.%d{yyyy-MM-dd}.log</fileNamePattern>
+                    <maxHistory>1</maxHistory> <!-- Keep logs for 1 day -->
+                </rollingPolicy>
+                <encoder>
+                    <pattern>${NEOSCO_PATTERN}</pattern>
+                </encoder>
+            </appender>
+        
+            <!-- Console Appender for Debugging -->
+            <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+                <encoder>
+                    <pattern>${DEFAULT_PATTERN}</pattern>
+                </encoder>
+            </appender>
+        
+            <!-- Root Logger for General Logs -->
+            <root level="INFO">
+                <appender-ref ref="APPLICATION_FILE"/>
+                <!-- Optional: You can also log to the console if needed -->
+                <!-- <appender-ref ref="CONSOLE"/> -->
+            </root>
+        
+            <!-- Logger for Application Start/Stop Events -->
+            <logger name="org.springframework.boot" level="INFO">
+                <appender-ref ref="START_STOP_FILE"/>
+            </logger>
+        
+            <!-- Logger for Explicit Logs -->
+            <logger name="wise" level="INFO" additivity="false">
+                <appender-ref ref="NEOSCO_FILE"/>
+            </logger>
+        
+        </configuration>
++ test
+  + java
+    + wise
+      - EGovBootApplicationTests.java
+        Content:
+          package wise;
+          
+          import org.junit.jupiter.api.Test;
+          import org.springframework.boot.test.context.SpringBootTest;
+          
+          @SpringBootTest
+          class EGovBootApplicationTests {
+          
+          	@Test
+          	void contextLoads() {
+          	}
+          
+          }

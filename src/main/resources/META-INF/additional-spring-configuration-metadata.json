@@ -1,0 +1,32 @@
+{"properties": [
+  {
+    "name": "wn.config.api.key.master",
+    "type": "java.lang.String",
+    "description": "API key for All route group",
+    "defaultValue": ""
+  },
+  {
+    "name": "wn.config.api.key.web",
+    "type": "java.lang.String",
+    "description": "API key for web route group",
+    "defaultValue": ""
+  },
+  {
+    "name": "wn.config.api.key.mobile",
+    "type": "java.lang.String",
+    "description": "API key for mobile route group",
+    "defaultValue": ""
+  },
+  {
+    "name": "wn.config.api.key.kiosk",
+    "type": "java.lang.String",
+    "description": "API key for kiosk route group",
+    "defaultValue": ""
+  },
+  {
+    "name": "allowed.origins",
+    "type": "java.lang.String",
+    "description": "A description for 'allowed.origins'",
+    "defaultValue" : ""
+  }
+]}

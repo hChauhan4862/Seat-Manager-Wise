@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration  debug="true">
+
+    <!-- Properties -->
+    <property name="LOG_PATH" value="logs"/>
+    <property name="LOG_FILE_NAME" value="application.log"/>
+    <property name="START_STOP_LOG_FILE_NAME" value="startup-shutdown.log"/>
+    <property name="NEOSCO_LOG_FILE_NAME" value="neosco-logs.log"/>
+    <property name="MAX_HISTORY" value="30"/>
+    <property name="TOTAL_SIZE_CAP" value="1GB"/>
+
+    <!-- Define log patterns -->
+    <property name="DEFAULT_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} %5p [traceId=%X{traceId}] [%t] %-40.40logger{39} : %m%n"/>
+    <property name="NEOSCO_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} %5p %-40.40logger{39} : %m%n"/>
+
+    <!-- Appender for Application Start/End Logs -->
+    <appender name="START_STOP_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/${START_STOP_LOG_FILE_NAME}</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/${START_STOP_LOG_FILE_NAME}.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>${MAX_HISTORY}</maxHistory>
+            <totalSizeCap>${TOTAL_SIZE_CAP}</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${DEFAULT_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Appender for General Application Logs -->
+    <appender name="APPLICATION_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/${LOG_FILE_NAME}</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/${LOG_FILE_NAME}.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>${MAX_HISTORY}</maxHistory>
+            <totalSizeCap>${TOTAL_SIZE_CAP}</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${DEFAULT_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Appender for Explicit Logs Saved by Logger -->
+    <appender name="NEOSCO_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/${NEOSCO_LOG_FILE_NAME}</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/${NEOSCO_LOG_FILE_NAME}.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>1</maxHistory> <!-- Keep logs for 1 day -->
+        </rollingPolicy>
+        <encoder>
+            <pattern>${NEOSCO_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Console Appender for Debugging -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${DEFAULT_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Root Logger for General Logs -->
+    <root level="INFO">
+        <appender-ref ref="APPLICATION_FILE"/>
+        <!-- Optional: You can also log to the console if needed -->
+        <!-- <appender-ref ref="CONSOLE"/> -->
+    </root>
+
+    <!-- Logger for Application Start/Stop Events -->
+    <logger name="org.springframework.boot" level="INFO">
+        <appender-ref ref="START_STOP_FILE"/>
+    </logger>
+
+    <!-- Logger for Explicit Logs -->
+    <logger name="wise" level="INFO" additivity="false">
+        <appender-ref ref="NEOSCO_FILE"/>
+    </logger>
+
+</configuration>
