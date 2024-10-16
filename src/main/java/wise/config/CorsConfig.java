@@ -2,13 +2,12 @@ package wise.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-import wise.middlewares.MyInterceptor;
+import wise.filters.MyInterceptor;
 
 @Configuration
 public class CorsConfig implements WebMvcConfigurer {
@@ -20,18 +19,14 @@ public class CorsConfig implements WebMvcConfigurer {
     @Value("${allowed.origins}")
     private String[] allowedOrigins;
 
-    @Bean
-    public WebMvcConfigurer corsConfigurer() {
-        return new WebMvcConfigurer() {
-            @Override
-            public void addCorsMappings(@SuppressWarnings("null") CorsRegistry registry) {
-                registry.addMapping("/**") // Allow all endpoints
-                    .allowedOrigins(allowedOrigins) // Replace with actual origins
-                    .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS") // Allow all HTTP methods
-                    .allowedHeaders("*") // Allow all headers
-                    .allowCredentials(true); // Allow credentials (cookies, authorization headers)
-            }
-        };
+
+    @Override
+    public void addCorsMappings(@SuppressWarnings("null") CorsRegistry registry) {
+        registry.addMapping("/**") // Allow all endpoints
+            .allowedOrigins(allowedOrigins) // Replace with actual origins
+            .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS") // Allow all HTTP methods
+            .allowedHeaders("*") // Allow all headers
+            .allowCredentials(true); // Allow credentials (cookies, authorization headers)
     }
 
     @Override
