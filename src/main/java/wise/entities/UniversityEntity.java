@@ -5,6 +5,7 @@ import org.hibernate.annotations.SoftDelete;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+
 @Entity
 @Table(name = "WN_UNIVERSITY")
 @SoftDelete
@@ -14,30 +15,30 @@ public class UniversityEntity extends BaseEntity {
 
     @Id
     @Column(name = "UNIV_CODE", nullable = false)
-    private Integer univCode;
+    private int univCode;
 
-    @Column(name = "UNIV_NAME", nullable = false, columnDefinition = "Nvarchar(100)")
+    @Column(name = "UNIV_NAME", unique = true, nullable = false, length = 100)
     private String univName;
 
-    @Column(name = "UNIV_ADDRESS", columnDefinition = "Nvarchar(255)")
+    @Column(name = "UNIV_ADDRESS", length = 255)
     private String univAddress;
 
-    @Column(name = "UNIV_CITY", columnDefinition = "Nvarchar(50)")
+    @Column(name = "UNIV_CITY", length = 50)
     private String univCity;
 
-    @Column(name = "UNIV_STATE", columnDefinition = "Nvarchar(50)")
+    @Column(name = "UNIV_STATE", length = 50)
     private String univState;
 
-    @Column(name = "UNIV_ZIP", columnDefinition = "Nvarchar(10)")
+    @Column(name = "UNIV_ZIP", length = 10)
     private String univZip;
 
-    @Column(name = "UNIV_PHONE", columnDefinition = "Nvarchar(15)")
+    @Column(name = "UNIV_PHONE", length = 15)
     private String univPhone;
 
-    @Column(name = "UNIV_PHONE_ALT", columnDefinition = "Nvarchar(15)")
+    @Column(name = "UNIV_PHONE_ALT", length = 15)
     private String univPhoneAlt;
 
-    @Column(name = "UNIV_WEBSITE", columnDefinition = "Varchar(255)")
+    @Column(name = "UNIV_WEBSITE", length = 255)
     private String univWebsite;
 
     @Column(name = "UNIV_LATITUDE")

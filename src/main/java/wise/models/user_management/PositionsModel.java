@@ -1,4 +1,4 @@
-package wise.dtos.user_management;
+package wise.models.user_management;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -6,7 +6,7 @@ import jakarta.validation.constraints.*;
 import lombok.Data;
 
 @Data
-public class PositionsDto {
+public class PositionsModel {
 
     @NotBlank(message = "{positions.name.required}")
     @Size(min = 3, max = 50, message = "{positions.name.size}")

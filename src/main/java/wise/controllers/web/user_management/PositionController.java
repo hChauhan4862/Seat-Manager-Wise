@@ -9,8 +9,8 @@ import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import wise.common.ApiResponseModel;
-import wise.dtos.user_management.PositionsDto;
 import wise.entities.*;
+import wise.models.user_management.PositionsModel;
 
 import org.springframework.data.domain.Page;
 import org.slf4j.Logger;
@@ -22,7 +22,7 @@ import wise.utils.RequestUtil;
 
 @RestController
 @RequestMapping("/web/users_positions")
-@Tag(name = "User Management", description = "User Management-specific APIs")
+@Tag(name = "User Positions", description = "User Positions-specific APIs")
 public class PositionController {
 
     private static final Logger logger = LoggerFactory.getLogger(PositionController.class);
@@ -37,7 +37,7 @@ public class PositionController {
 
     @PostMapping
     @Operation(summary = "Create a new position")
-    public ResponseEntity<ApiResponseModel> createPosition(@Valid @RequestBody PositionsDto posDto) {
+    public ResponseEntity<ApiResponseModel> createPosition(@Valid @RequestBody PositionsModel posDto) {
         
         PositionEntity posEntity = RequestUtil.NewPatchDataModifier(PositionEntity.class, posDto);
         posService.create(posEntity);
@@ -66,7 +66,7 @@ public class PositionController {
 
     @PutMapping("/{code}")
     @Operation(summary = "Update a position by code")
-    public ResponseEntity<ApiResponseModel> updatePosition(@PathVariable String code, @Valid @RequestBody PositionsDto posDto) {
+    public ResponseEntity<ApiResponseModel> updatePosition(@PathVariable String code, @Valid @RequestBody PositionsModel posDto) {
 
         PositionEntity existingPosition = posService.getByCode(code); // Fetch existing position
         RequestUtil.PatchDataModifier(existingPosition, posDto); // Apply the changes using PatchDataModifier

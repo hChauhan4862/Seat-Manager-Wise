@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import wise.common.ApiResponseModel;
-import wise.dtos.config.SysConfigDto;
+import wise.models.config.SysConfigModel;
 // import org.slf4j.Logger;
 // import org.slf4j.LoggerFactory;
 import wise.services.app.ConfigurationService;
@@ -38,8 +38,8 @@ public class ConfigController {
 
     @Operation(summary = "System properties configuration APIs")
     @PostMapping("system_properties_update")
-    public ResponseEntity<ApiResponseModel> updateConfig(@Valid @RequestBody List<SysConfigDto> sysConfigDto) {
-        for (SysConfigDto config : sysConfigDto) {
+    public ResponseEntity<ApiResponseModel> updateConfig(@Valid @RequestBody List<SysConfigModel> sysConfigDto) {
+        for (SysConfigModel config : sysConfigDto) {
             String key = config.getKey();
             String value = config.getValue();
 

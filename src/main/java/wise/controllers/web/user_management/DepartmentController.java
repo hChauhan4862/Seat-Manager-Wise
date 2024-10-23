@@ -9,8 +9,8 @@ import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import wise.common.ApiResponseModel;
-import wise.dtos.user_management.DepartmentsDto;
 import wise.entities.*;
+import wise.models.user_management.DepartmentsModel;
 
 import org.springframework.data.domain.Page;
 import org.slf4j.Logger;
@@ -18,11 +18,11 @@ import org.slf4j.LoggerFactory;
 
 import wise.services.app.ResponseService;
 import wise.services.user_management.DepartmentsService;
-import wise.utils.RequestUtil;;
+import wise.utils.RequestUtil;
 
 @RestController
 @RequestMapping("/web/users_departments")
-@Tag(name = "User Management", description = "User Management-specific APIs")
+@Tag(name = "User Departments", description = "User Departments-specific APIs")
 public class DepartmentController {
 
     private static final Logger logger = LoggerFactory.getLogger(DepartmentController.class);
@@ -37,7 +37,7 @@ public class DepartmentController {
 
     @PostMapping
     @Operation(summary = "Create a new department")
-    public ResponseEntity<ApiResponseModel> createDepartment(@Valid @RequestBody DepartmentsDto deptDto) {
+    public ResponseEntity<ApiResponseModel> createDepartment(@Valid @RequestBody DepartmentsModel deptDto) {
         
         DepartmentEntity deptEntity = RequestUtil.NewPatchDataModifier(DepartmentEntity.class, deptDto);
         deptService.create(deptEntity);
@@ -66,7 +66,7 @@ public class DepartmentController {
 
     @PutMapping("/{code}")
     @Operation(summary = "Update a department by code")
-    public ResponseEntity<ApiResponseModel> updateDepartment(@PathVariable String code, @Valid @RequestBody DepartmentsDto deptDto) {
+    public ResponseEntity<ApiResponseModel> updateDepartment(@PathVariable String code, @Valid @RequestBody DepartmentsModel deptDto) {
 
         DepartmentEntity existingDepartment = deptService.getByCode(code); // Fetch existing department
         RequestUtil.PatchDataModifier(existingDepartment, deptDto); // Apply the changes using PatchDataModifier

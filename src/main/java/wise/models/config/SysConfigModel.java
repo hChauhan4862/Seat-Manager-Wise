@@ -1,4 +1,4 @@
-package wise.dtos.config;
+package wise.models.config;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -6,7 +6,7 @@ import jakarta.validation.constraints.*;
 import lombok.Data;
 
 @Data
-public class SysConfigDto {
+public class SysConfigModel {
 
     @NotBlank(message = "{sysproperties.key.required}")
     @JsonProperty("key")

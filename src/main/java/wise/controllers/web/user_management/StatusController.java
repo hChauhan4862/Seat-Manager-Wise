@@ -9,8 +9,8 @@ import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import wise.common.ApiResponseModel;
-import wise.dtos.user_management.StatusesDto;
 import wise.entities.*;
+import wise.models.user_management.StatusesModel;
 
 import org.springframework.data.domain.Page;
 import org.slf4j.Logger;
@@ -22,7 +22,7 @@ import wise.utils.RequestUtil;
 
 @RestController
 @RequestMapping("/web/users_status")
-@Tag(name = "User Management", description = "User Management-specific APIs")
+@Tag(name = "User Status", description = "User Status-specific APIs")
 public class StatusController {
 
     private static final Logger logger = LoggerFactory.getLogger(StatusController.class);
@@ -37,7 +37,7 @@ public class StatusController {
 
     @PostMapping
     @Operation(summary = "Create a new status")
-    public ResponseEntity<ApiResponseModel> createStatus(@Valid @RequestBody StatusesDto statusDto) {
+    public ResponseEntity<ApiResponseModel> createStatus(@Valid @RequestBody StatusesModel statusDto) {
         
         StatusEntity statusEntity = RequestUtil.NewPatchDataModifier(StatusEntity.class, statusDto);
         statusService.create(statusEntity);
@@ -66,7 +66,7 @@ public class StatusController {
 
     @PutMapping("/{code}")
     @Operation(summary = "Update a status by code")
-    public ResponseEntity<ApiResponseModel> updateStatus(@PathVariable String code, @Valid @RequestBody StatusesDto statusDto) {
+    public ResponseEntity<ApiResponseModel> updateStatus(@PathVariable String code, @Valid @RequestBody StatusesModel statusDto) {
 
         StatusEntity existingStatus = statusService.getByCode(code); // Fetch existing status
         RequestUtil.PatchDataModifier(existingStatus, statusDto); // Apply the changes using PatchDataModifier
