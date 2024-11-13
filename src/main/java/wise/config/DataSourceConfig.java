@@ -40,7 +40,7 @@ public class DataSourceConfig {
         dataSource.setDriverClassName(driverClassName);
 
         // Connection pool settings
-        dataSource.setAllowPoolSuspension(true);
+        dataSource.setAllowPoolSuspension(true); // Do Not Change - It Allow to Chnage DataSource without connection leak
         dataSource.setMaximumPoolSize(50);
         dataSource.setMinimumIdle(10);
         dataSource.setIdleTimeout(30000);
@@ -72,6 +72,7 @@ public class DataSourceConfig {
     private Properties hibernateProperties() {
         Properties hibernateProps = new Properties();
         hibernateProps.put("hibernate.show_sql", "true");
+        hibernateProps.put("spring.jpa.hibernate.ddl-auto", "update");
         hibernateProps.put("hibernate.hbm2ddl.auto", "update");
         return hibernateProps;
     }

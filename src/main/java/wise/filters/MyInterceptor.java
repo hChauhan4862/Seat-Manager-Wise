@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletResponse;
 // import org.slf4j.LoggerFactory;
 
 import wise.common.RequestContext;
+import wise.utils.constant.Constant;
 
 import java.util.UUID;
 
@@ -23,6 +24,18 @@ public class MyInterceptor implements HandlerInterceptor {
 
         // Set request time for time taken calculation
         RequestContext.set("request_time", System.currentTimeMillis());
+
+        // Set platform parsed from request path
+        String requestPath = request.getRequestURI();
+
+        String platform = "WEB";
+        // if (requestPath.startsWith(Constant.KIOSK_BASE_API)) {
+        //     platform = "KIOSK";
+        // } else if (requestPath.startsWith(Constant.MOBILE_BASE_API)) {
+        //     platform = "MOBILE";
+        // }
+        RequestContext.set("platform", platform);
+
 
         // Generate or retrieve traceId
         String traceId = request.getHeader("traceId");

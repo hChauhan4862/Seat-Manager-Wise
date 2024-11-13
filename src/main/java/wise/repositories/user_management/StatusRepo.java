@@ -7,7 +7,12 @@ import wise.entities.*;
 
 @Repository
 public interface StatusRepo extends JpaRepository<StatusEntity, String> {
+    // Exists by status code
+    boolean existsByStatusCode(String status_code);
+
+    // Exists by status name
     boolean existsByStatusName(String status_name);
-    // Exists by status name and other than the given status code
+
+    // Exists by status name and other than the given status code (for update)
     boolean existsByStatusNameAndStatusCodeNot(String status_name, String status_code);
 }

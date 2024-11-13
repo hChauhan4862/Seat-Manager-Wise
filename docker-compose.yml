@@ -1,0 +1,62 @@
+version: '3.8'
+
+volumes:
+  sqlserver_data:
+  maven_cache:
+
+services:
+  app:
+    build: 
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8081:1430"
+    volumes:
+      - .:/app 
+      - maven_cache:/root/.m2 
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:sqlserver://sqlserver:1433;databaseName=WN_SEAT_MANAGER_V2_DEV;encrypt=true;trustServerCertificate=true
+      - SPRING_DATASOURCE_USERNAME=sa
+      - SPRING_DATASOURCE_PASSWORD=${MSSQL_SA_PASSWORD}
+    networks:
+      - mssql-network
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=${MSSQL_SA_PASSWORD}
+      - MSSQL_PID=Developer
+    ports:
+      - 1433:1433
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+    networks:
+      - mssql-network
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "ss -tuln | grep -q 1433"]
+      interval: 10s
+      retries: 10
+      start_period: 10s
+      timeout: 3s
+
+  sqlserver.configurator:
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    volumes:
+      - ./init:/docker-entrypoint-initdb.d
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    command: >
+      bash -c '
+      /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P ${MSSQL_SA_PASSWORD} -d master -i docker-entrypoint-initdb.d/init.sql;
+      echo "All done!";
+      '
+
+networks:
+  mssql-network:
+    driver: bridge

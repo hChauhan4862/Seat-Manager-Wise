@@ -7,7 +7,12 @@ import wise.entities.*;
 
 @Repository
 public interface DepartmentRepo extends JpaRepository<DepartmentEntity, String> {
+    // Exists by department code
+    boolean existsByDeptCode(String dept_code);
+
+    // Exists by department name
     boolean existsByDeptName(String dept_name);
-    // Exists by department name and other than the given department code
+
+    // Exists by department name and other than the given department code (for update)
     boolean existsByDeptNameAndDeptCodeNot(String dept_name, String dept_code);
 }

@@ -52,9 +52,13 @@ public class DepartmentsService {
     @Transactional
     public DepartmentEntity create(DepartmentEntity deptEntity) {
         // Find Max Code 1,8 characters and increment by 1
-        String newId = RandomStringUtils.randomAlphanumeric(10).toUpperCase();
-        deptEntity.setDeptCode(newId);
 
+        if (deptEntity.getDeptCode() != null && deptRepo.existsByDeptCode(deptEntity.getDeptCode())) {
+            throw new CustomException("departments.code.alreadyExists", HttpStatus.CONFLICT);
+        } else if (deptEntity.getDeptCode() == null) {
+            deptEntity.setDeptCode(RandomStringUtils.randomAlphanumeric(10).toUpperCase());
+        }
+        
         // Check if department already exists in the database
         if(deptRepo.existsByDeptName(deptEntity.getDeptName())) {
             throw new CustomException("departments.name.alreadyExists", HttpStatus.CONFLICT);

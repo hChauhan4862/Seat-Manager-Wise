@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.util.Map;
 import wise.config.ApiKeyConfig;
+import wise.utils.constant.Constant;
 
 @Component
 public class ApiKeyFilter implements Filter {
@@ -41,13 +42,13 @@ public class ApiKeyFilter implements Filter {
         // Determine the correct API key based on the route group
         String expectedApiKey = null;
         Boolean needAPIKEY = false;
-        if (requestURI.startsWith("/web/")) {
+        if (requestURI.startsWith(Constant.WEB_BASE_API)) {
             expectedApiKey = apiKeys.get("web");
             needAPIKEY = true;
-        } else if (requestURI.startsWith("/mobile/")) {
+        } else if (requestURI.startsWith(Constant.MOBILE_BASE_API)) {
             expectedApiKey = apiKeys.get("mobile");
             needAPIKEY = true;
-        } else if (requestURI.startsWith("/kiosk/")) {
+        } else if (requestURI.startsWith(Constant.KIOSK_BASE_API)) {
             expectedApiKey = apiKeys.get("kiosk");
             needAPIKEY = true;
         }

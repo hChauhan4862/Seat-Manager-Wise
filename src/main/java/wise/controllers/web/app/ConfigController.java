@@ -7,11 +7,12 @@ import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import wise.common.ApiResponseModel;
-import wise.models.config.SysConfigModel;
+import wise.models.request.config.SysConfigModel;
 // import org.slf4j.Logger;
 // import org.slf4j.LoggerFactory;
 import wise.services.app.ConfigurationService;
 import wise.services.app.ResponseService;
+import wise.utils.constant.Constant;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.context.scope.refresh.RefreshScope;
@@ -19,7 +20,7 @@ import org.springframework.cloud.context.scope.refresh.RefreshScope;
 import java.util.List;
 
 @RestController
-@RequestMapping("/web/config")
+@RequestMapping(Constant.WEB_BASE_API + "config")
 @Tag(name = "Config", description = "System Configuration APIs")
 public class ConfigController {
 

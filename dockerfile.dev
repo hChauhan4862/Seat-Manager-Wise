@@ -1,0 +1,13 @@
+FROM maven:3.8-openjdk-17
+
+WORKDIR /app
+
+# Copy only the POM file first to cache dependencies
+COPY pom.xml .
+RUN mvn dependency:go-offline
+
+# Copy the source code
+COPY src ./src
+
+# Run Spring Boot with dev tools enabled
+CMD ["mvn", "spring-boot:run", "-Dspring-boot.run.profiles=dev", "-Dspring-boot.run.jvmArguments='-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005'"]

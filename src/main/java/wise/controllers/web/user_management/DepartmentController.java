@@ -10,7 +10,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import wise.common.ApiResponseModel;
 import wise.entities.*;
-import wise.models.user_management.DepartmentsModel;
+import wise.models.request.user_management.DepartmentsModel;
 
 import org.springframework.data.domain.Page;
 import org.slf4j.Logger;
@@ -19,9 +19,10 @@ import org.slf4j.LoggerFactory;
 import wise.services.app.ResponseService;
 import wise.services.user_management.DepartmentsService;
 import wise.utils.RequestUtil;
+import wise.utils.constant.Constant;
 
 @RestController
-@RequestMapping("/web/users_departments")
+@RequestMapping(Constant.WEB_BASE_API + "users_departments")
 @Tag(name = "User Departments", description = "User Departments-specific APIs")
 public class DepartmentController {
 

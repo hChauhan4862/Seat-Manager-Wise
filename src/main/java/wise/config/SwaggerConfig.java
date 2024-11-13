@@ -23,7 +23,7 @@ public class SwaggerConfig {
     public GroupedOpenApi mobileApi() {
         return GroupedOpenApi.builder()
                 .group("mobile") // Name of the group
-                .pathsToMatch("/mobile/**") // Match all paths starting with /mobile
+                .pathsToMatch("/api/v1/mobile/**") // Match all paths starting with /mobile
                 .build();
     }
 
@@ -32,7 +32,7 @@ public class SwaggerConfig {
     public GroupedOpenApi kioskApi() {
         return GroupedOpenApi.builder()
                 .group("kiosk") // Name of the group
-                .pathsToMatch("/kiosk/**") // Match all paths starting with /kiosk
+                .pathsToMatch("/api/v1/kiosk/**") // Match all paths starting with /kiosk
                 .build();
     }
 
@@ -42,7 +42,7 @@ public class SwaggerConfig {
     public GroupedOpenApi webApi() {
         return GroupedOpenApi.builder()
                 .group("web") // Name of the group
-                .pathsToMatch("/web/**") // Match all paths starting with /web
+                .pathsToMatch("/api/v1/web/**") // Match all paths starting with /web
                 .build();
     }
 }

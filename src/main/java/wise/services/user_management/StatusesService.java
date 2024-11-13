@@ -50,8 +50,11 @@ public class StatusesService {
     @Transactional
     public StatusEntity create(StatusEntity statusEntity) {
         // Find Max Code 1,8 characters and increment by 1
-        String newId = RandomStringUtils.randomAlphanumeric(10).toUpperCase();
-        statusEntity.setStatusCode(newId);
+        if (statusEntity.getStatusCode() != null && statusRepo.existsByStatusCode(statusEntity.getStatusCode())) {
+            throw new CustomException("statuses.code.alreadyExists", HttpStatus.CONFLICT);
+        } else if (statusEntity.getStatusCode() == null) {
+            statusEntity.setStatusCode(RandomStringUtils.randomAlphanumeric(10).toUpperCase());
+        }
 
         // Check if status already exists in the database
         if(statusRepo.existsByStatusName(statusEntity.getStatusName())) {

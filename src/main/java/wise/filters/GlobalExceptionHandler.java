@@ -44,9 +44,23 @@ public class GlobalExceptionHandler {
         Map<String, String> errors = new HashMap<>();
         
         ex.getBindingResult().getAllErrors().forEach((error) -> {
+
             String fieldName = ((FieldError) error).getField();
-            String errorMessage = messageSource.getMessage(error, Locale.getDefault());
-            errors.put(fieldName, errorMessage);
+            String message = error.getDefaultMessage();
+            
+            if (message != null && message.indexOf("{fieldname}") != -1) {
+                // check if #fieldname# in the error message replace it with the actual field name
+                CharSequence fieldname = messageSource.getMessage("fields."+fieldName, null, fieldName, Locale.getDefault());
+                CharSequence target = "{fieldname}";
+                message = message.replace(target, fieldname);
+            }
+            if (message == null){
+                message = "";
+            }
+
+            message = messageSource.getMessage(message, error.getArguments(), message, Locale.getDefault());
+            // message = messageSource.getMessage(message, null, message, Locale.getDefault());
+            errors.put(fieldName, message);
         });
 
         return new ResponseEntity<ApiResponseModel>(responseService.errorResponse(100, "response.validationError", errors), HttpStatus.BAD_REQUEST);

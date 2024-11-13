@@ -10,17 +10,18 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import wise.common.ApiResponseModel;
 import wise.entities.UniversityEntity;
-import wise.models.university.UniversityModel;
-import wise.models.university.UniversityPatchModel;
+import wise.models.request.university.UniversityModel;
+import wise.models.request.university.UniversityPatchModel;
 import wise.services.university.UniversityService;
 import wise.services.app.ResponseService;
 import wise.utils.RequestUtil;
+import wise.utils.constant.Constant;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @RestController
-@RequestMapping("/web/universities")
+@RequestMapping(Constant.WEB_BASE_API + "universities")
 @Tag(name = "University Management", description = "University-specific APIs")
 public class UniversityController {
 

@@ -50,8 +50,11 @@ public class PositionsService {
     @Transactional
     public PositionEntity create(PositionEntity posEntity) {
         // Find Max Code 1,8 characters and increment by 1
-        String newId = RandomStringUtils.randomAlphanumeric(10).toUpperCase();
-        posEntity.setPosCode(newId);
+        if (posEntity.getPosCode() != null && posRepo.existsByPosCode(posEntity.getPosCode())) {
+            throw new CustomException("positions.code.alreadyExists", HttpStatus.CONFLICT);
+        } else if (posEntity.getPosCode() == null) {
+            posEntity.setPosCode(RandomStringUtils.randomAlphanumeric(10).toUpperCase());
+        }
 
         // Check if position already exists in the database
         if(posRepo.existsByPosName(posEntity.getPosName())) {

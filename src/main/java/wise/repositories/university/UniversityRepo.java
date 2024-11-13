@@ -12,6 +12,7 @@ public interface UniversityRepo extends JpaRepository<UniversityEntity, Integer>
     boolean existsByUnivName(String univ_name);
     boolean existsByUnivNameAndUnivCodeNot(String univ_name, Integer univ_code);
 
-    @Query("SELECT (COALESCE(MAX(d.univCode), 100) + 1) FROM UniversityEntity d")
+
+    @Query(value = "SELECT (COALESCE(MAX(s.UNIV_CODE), 1000) + 1) FROM WN_UNIVERSITY s", nativeQuery = true)
     Integer getMaxId();
 }
